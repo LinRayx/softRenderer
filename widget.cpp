@@ -37,16 +37,15 @@ Widget::~Widget()
 void Widget::paintEvent(QPaintEvent*) {
     if(canvas) {
         QPainter painter(this);
-        painter.drawImage(0, 0, *canvas);
+        painter.drawImage(0, 0, canvas->mirrored(true, true));
     }
-    qDebug() << "222" << endl;
 }
 
 void Widget::receiveFrame(unsigned char* image, double deltaFrameTime) {
     if(canvas)
         delete canvas;
+
     canvas = new QImage(image, 800, 600, QImage::Format_RGBA8888);
-    canvas->mirrored(false, true);
     this->deltaFrameTime = deltaFrameTime;
     update();
 

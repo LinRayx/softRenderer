@@ -1,0 +1,15 @@
+image/african_head_diffuse.tga
+main.cpp
+renderCore/FrameBuffer.cpp
+renderCore/FrameBuffer.h
+renderCore/geometry.h
+renderCore/model.cpp
+renderCore/model.h
+renderCore/tgaimage.cpp
+renderCore/tgaimage.h
+renderloop.cpp
+renderloop.h
+utils.h
+widget.cpp
+widget.h
+widget.ui

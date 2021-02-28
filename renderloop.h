@@ -2,6 +2,7 @@
 #define RENDERLOOP_H
 #include "utils.h"
 #include <QObject>
+
 class RenderLoop : public QObject
 {
      Q_OBJECT

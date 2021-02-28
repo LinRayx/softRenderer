@@ -1,5 +1,6 @@
 #include "renderloop.h"
 #include <QDebug>
+#include <QDir>
 RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(parent), width(_width), height(_height)
 {
     stop = false;
@@ -8,51 +9,50 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
 void RenderLoop::loop()
 {
     frameBuffer.Resize(width, height);
-
-        TGAImage diffuseImg;
-        diffuseImg.read_tga_file("/Users/kyrie/softRenderer/image/african_head_diffuse.tga");
-        diffuseImg.flip_vertically();
-        TGAImage image(width, height, TGAImage::RGBA);
-        Model* model = new Model("/Users/kyrie/softRenderer/obj/african_head.obj");
-        float *zBuffer = new float[width*height];
-        for (int i = 0; i < width; ++i) {
-            for (int j = 0; j <height; ++j) {
-                zBuffer[i+j*width] = std::numeric_limits<float>::min();
-            }
+    TGAImage diffuseImg;
+    std::string diffuseImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
+    if (diffuseImg.read_tga_file(diffuseImgPath.c_str()) == false) return;
+    diffuseImg.flip_vertically();
+    TGAImage image(width, height, TGAImage::RGBA);
+    std::string objPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "african_head.obj";
+    Model* model = new Model(objPath.c_str());
+    float *zBuffer = new float[width*height];
+    for (int i = 0; i < width; ++i) {
+        for (int j = 0; j <height; ++j) {
+            zBuffer[i+j*width] = std::numeric_limits<float>::min();
         }
-        Vec3f light_dir(0,0,-1);
+    }
+    Vec3f light_dir(0,0,-1);
 
+    while(!stop) {
+        start = clock();
+        for (int i = 0; i < model->nfaces(); ++i) {
+            std::vector<int> face = model->face(i);
+            std::vector<int> tex = model->faceTex(i);
 
-        while(!stop) {
-            start = clock();
-            for (int i = 0; i < model->nfaces(); ++i) {
-                std::vector<int> face = model->face(i);
-                std::vector<int> tex = model->faceTex(i);
+            Vec3f screen_coords[3];
+            Vec3f world_coords[3];
+            Vec2f uv[3];
+            Vec3f triangleColor[3];
+            Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
+            n.normalize();
+            // float intensity = n * light_dir;
 
-                Vec3f screen_coords[3];
-                Vec3f world_coords[3];
-                Vec2f uv[3];
-                Vec3f triangleColor[3];
-                Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
-                n.normalize();
-                // float intensity = n * light_dir;
-
-                for (int j = 0; j <3; ++j) {
-                    world_coords[j] = model->vert(face[j]);
-                    screen_coords[j] = Vec3f((world_coords[j].x+1.)*width/2., (world_coords[j].y+1.)*height/2., world_coords[j].z);
-                    uv[j] = model->tex(tex[j]);
-                    uv[j] = Vec2f(uv[j].u * diffuseImg.get_width(), uv[j].v * diffuseImg.get_height());
-                    triangleColor[j] = texture(uv[j], diffuseImg);
-                }
-
-                // triangleByBcFg(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, diffuseImg, uv[0], uv[1], uv[2]);
-                triangleByBc(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, triangleColor);
+            for (int j = 0; j <3; ++j) {
+                world_coords[j] = model->vert(face[j]);
+                screen_coords[j] = Vec3f((world_coords[j].x+1.)*width/2., (world_coords[j].y+1.)*height/2., world_coords[j].z);
+                uv[j] = model->tex(tex[j]);
+                uv[j] = Vec2f(uv[j].u * diffuseImg.get_width(), uv[j].v * diffuseImg.get_height());
+                triangleColor[j] = texture(uv[j], diffuseImg);
             }
-            finish = clock();
-            deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
-            qDebug() << deltaFrameTime;
-            emit frameOut(frameBuffer.data(), deltaFrameTime);
+
+            // triangleByBcFg(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, diffuseImg, uv[0], uv[1], uv[2]);
+            triangleByBc(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, triangleColor);
         }
+        finish = clock();
+        deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
+        emit frameOut(frameBuffer.data(), deltaFrameTime);
+    }
 //        image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 //        image.write_tga_file("output.tga");
 }
