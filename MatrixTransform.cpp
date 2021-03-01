@@ -17,9 +17,9 @@ Matrix4f MatrixTransform::GetTranslationMatrix4x4(Vector3f coords)
 
 Matrix4f MatrixTransform::GetRotationMatrix4x4(Vector3f rot)
 {
-    Matrix4f Rx = _getRotationMatrix4x4(Vector3f(1, 0, 0), rot.x());
-    Matrix4f Ry = _getRotationMatrix4x4(Vector3f(0, 1, 0), rot.y());
-    Matrix4f Rz = _getRotationMatrix4x4(Vector3f(0, 0, 1), rot.z());
+    Matrix4f Rx = _getRotationMatrix4x4(Vector3f(1, 0, 0), rot.x() / 180 * EIGEN_PI);
+    Matrix4f Ry = _getRotationMatrix4x4(Vector3f(0, 1, 0), rot.y() / 180 * EIGEN_PI);
+    Matrix4f Rz = _getRotationMatrix4x4(Vector3f(0, 0, 1), rot.z() / 180 * EIGEN_PI);
     return Rx * Ry * Rz;
 }
 
@@ -77,6 +77,7 @@ Matrix4f MatrixTransform::_getRotationMatrix4x4(Vector3f rot, float theta)
     Matrix4Xf m;
     float c = cosf(theta);
     float s = sinf(theta);
+    qDebug() << c << s;
     float Ax = rot.x(), Ay = rot.y(), Az = rot.z();
     m << c+(1-c)*Ax*Ax, (1-c)*Ax*Ay-s*Az, (1-c)*Ax*Az+s*Ay, 0,
             (1-c)*Ax*Ay+s*Az, c+(1-c)*Ay*Ay, (1-c)*Ay*Az-s*Ax, 0,

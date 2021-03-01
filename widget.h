@@ -24,6 +24,8 @@ public:
 protected:
     void keyPressEvent(QKeyEvent *) override;
     void paintEvent(QPaintEvent *) override;
+    void mousePressEvent(QMouseEvent* ) override;
+    void mouseMoveEvent(QMouseEvent* ) override;
 private:
 
     Ui::Widget *ui;
@@ -31,6 +33,8 @@ private:
     RenderLoop* loop;
     QThread* loopThread;
     double deltaFrameTime;
+    float lastX, lastY;
+    float yaw, pitch;
 };
 
 #endif // WIDGET_H

@@ -7,6 +7,7 @@ Widget::Widget(QWidget *parent) :
 {
     ui->setupUi(this);
     canvas = nullptr;
+    pitch = yaw = 0;
     deltaFrameTime = 0;
     loop = new RenderLoop(800, 600);
     loopThread = new QThread(this);
@@ -41,6 +42,42 @@ void Widget::paintEvent(QPaintEvent*) {
     }
 }
 
+void Widget::mousePressEvent(QMouseEvent *e)
+{
+    lastX = e->pos().x();
+    lastY = e->pos().y();
+}
+
+void Widget::mouseMoveEvent(QMouseEvent *e)
+{
+    float nx = e->pos().x();
+    float ny = e->pos().y();
+
+    float xoffset = nx - lastX;
+    float yoffset = lastY - ny;
+
+    lastX = nx;
+    lastY = ny;
+
+    float sensitiviry = 0.05;
+    xoffset *= sensitiviry;
+    yoffset *= sensitiviry;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+    Vector3f front;
+
+//    front.x() = cos(yaw/180*EIGEN_PI) * cos(pitch/180*EIGEN_PI);
+//    front.y() = sin(pitch/180*EIGEN_PI);
+//    front.z() = sin(yaw/180*EIGEN_PI) * cos(pitch/180*EIGEN_PI);
+
+    loop->mouseMoveEvent(pitch, yaw);
+
+}
+
 void Widget::receiveFrame(unsigned char* image, double deltaFrameTime) {
     if(canvas)
         delete canvas;
@@ -58,8 +95,23 @@ void Widget::fpsTimeOut()
 
 void Widget::keyPressEvent(QKeyEvent *e)
 {
+    float speed = 0.5f * deltaFrameTime;
     switch (e->key()) {
     case Qt::Key_Escape:
         this->close();
+        break;
+    case Qt::Key_W:
+        loop->keyPressEvent(speed, 'W');
+        break;
+    case Qt::Key_S:
+        loop->keyPressEvent(speed, 'S');
+        break;
+    case Qt::Key_A:
+        loop->keyPressEvent(speed, 'A');
+        break;
+    case Qt::Key_D:
+        loop->keyPressEvent(speed, 'D');
+        break;
+
     }
 }
