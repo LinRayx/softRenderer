@@ -37,7 +37,7 @@ Widget::~Widget()
 void Widget::paintEvent(QPaintEvent*) {
     if(canvas) {
         QPainter painter(this);
-        painter.drawImage(0, 0, canvas->mirrored(true, true));
+        painter.drawImage(0, 0, *canvas);
     }
 }
 
