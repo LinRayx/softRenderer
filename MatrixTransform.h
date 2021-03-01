@@ -7,7 +7,7 @@ class MatrixTransform
 
 public:
     MatrixTransform();
-    Matrix4f GetLookAtMatrix4x4();
+
     Matrix4f GetTranslationMatrix4x4(Vector3f coords);
     Matrix4f GetRotationMatrix4x4(Vector3f rot);
     Matrix4f GetScaleMatrix4x4(Vector3f scale);

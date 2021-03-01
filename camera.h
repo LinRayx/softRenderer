@@ -10,7 +10,8 @@ public:
     Vector3f GetPosition();
     Vector3f GetRightDirection();
     Vector3f GetLookDirection();
-
+    Matrix4f GetLookAtMatrix4x4();
+    void SetLookDirection(Vector3f);
     void SetUpDirection(Vector3f);
     void SetPosition(Vector3f);
 private:

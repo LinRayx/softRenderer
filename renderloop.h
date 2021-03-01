@@ -1,6 +1,7 @@
 #ifndef RENDERLOOP_H
 #define RENDERLOOP_H
 #include "utils.h"
+#include "MatrixTransform.h"
 #include <QObject>
 
 class RenderLoop : public QObject
@@ -9,7 +10,7 @@ class RenderLoop : public QObject
 public:
     explicit RenderLoop(int _width, int _height, QObject *parent = nullptr);
 
-    void triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAImage& image, Vec3f *triangleColor);
+    void triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAImage& image, Vec3f *triangleColor, float near, float far);
     Vec3f texture(Vec2f uv, TGAImage &image);
     Vec3f barycentric(Vec3f *pts, Vec2i p);
     Vec3f cross(const Vec3f& a, const Vec3f& b);
@@ -23,6 +24,8 @@ public:
     bool stop;
     clock_t start, finish;
     double deltaFrameTime;
+    MatrixTransform* transform;
+    Camera* camera;
 signals:
     void frameOut(unsigned char *image, double deltaFrameTime);
 

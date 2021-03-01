@@ -4,6 +4,8 @@
 RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(parent), width(_width), height(_height)
 {
     stop = false;
+    camera = new Camera;
+    transform = new MatrixTransform;
 }
 
 void RenderLoop::loop()
@@ -17,37 +19,51 @@ void RenderLoop::loop()
     std::string objPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "african_head.obj";
     Model* model = new Model(objPath.c_str());
     float *zBuffer = new float[width*height];
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j <height; ++j) {
-            zBuffer[i+j*width] = std::numeric_limits<float>::min();
-        }
-    }
+
     Vec3f light_dir(0,0,-1);
 
     while(!stop) {
         start = clock();
+        for (int i = 0; i < width; ++i) {
+            for (int j = 0; j <height; ++j) {
+                zBuffer[i+j*width] = std::numeric_limits<float>::min();
+            }
+        }
+
+        camera->SetUpDirection(Vector3f(0, 1, 0));
+        camera->SetPosition(Vector3f(-5, 0, 0));
+        camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
+        MatrixX4f view = transform->GetViewMatrix4x4(camera);
+        MatrixX4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
+
         for (int i = 0; i < model->nfaces(); ++i) {
             std::vector<int> face = model->face(i);
             std::vector<int> tex = model->faceTex(i);
 
+            Vector4f test_world_coords[3];
             Vec3f screen_coords[3];
             Vec3f world_coords[3];
             Vec2f uv[3];
             Vec3f triangleColor[3];
-            Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
-            n.normalize();
+//            Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
+//            n.normalize();
             // float intensity = n * light_dir;
 
             for (int j = 0; j <3; ++j) {
                 world_coords[j] = model->vert(face[j]);
-                screen_coords[j] = Vec3f((world_coords[j].x+1.)*width/2., (world_coords[j].y+1.)*height/2., world_coords[j].z);
+                test_world_coords[j] = Vector4f(world_coords[j].x, world_coords[j].y, world_coords[j].z, 1.0);
+                Vector4f sc = projection * view * test_world_coords[j];
+//                qDebug() << sc.x() << sc.y() << sc.z() << sc.w();
+                screen_coords[j] = Vec3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
+                screen_coords[j] = Vec3f((screen_coords[j].x+1.)*width/2., (screen_coords[j].y+1.)*height/2., world_coords[j].z);
+
                 uv[j] = model->tex(tex[j]);
                 uv[j] = Vec2f(uv[j].u * diffuseImg.get_width(), uv[j].v * diffuseImg.get_height());
                 triangleColor[j] = texture(uv[j], diffuseImg);
             }
 
             // triangleByBcFg(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, diffuseImg, uv[0], uv[1], uv[2]);
-            triangleByBc(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, triangleColor);
+            triangleByBc(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, triangleColor, 0.1f, 100.0f);
         }
         finish = clock();
         deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
@@ -57,7 +73,7 @@ void RenderLoop::loop()
 //        image.write_tga_file("output.tga");
 }
 
-void RenderLoop::triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAImage &image, Vec3f *triangleColor)
+void RenderLoop::triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAImage &image, Vec3f *triangleColor, float near, float far)
 {
     int minx = std::min(t2.x, std::min(t0.x, t1.x));
     int miny = std::min(t2.y, std::min(t0.y, t1.y));
@@ -80,7 +96,13 @@ void RenderLoop::triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAI
                 }
             }
             // std::cout << (int)color.raw[0] << " " << (int)color.raw[1]<<" " << (int)color.raw[2] << " " << std::endl;
-            for (int i = 0; i < 3; ++i) z += pts[i].z * p_barycentric.raw[i];
+            for (int i = 0; i < 3; ++i) {
+                z += p_barycentric.raw[i] * pts[i].z ;
+            }
+
+            z = z * 2.0 - 1.0;
+            z = (2 * near * far) / (far + near - z * (far-near));
+            qDebug() << z;
             if (zBuffer[x+y*width] < z) {
                 zBuffer[x+y*width] = z;
                 image.set(x, y, color1);
