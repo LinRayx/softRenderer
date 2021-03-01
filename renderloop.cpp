@@ -22,6 +22,9 @@ void RenderLoop::loop()
 
     Vec3f light_dir(0,0,-1);
 
+    camera->SetUpDirection(Vector3f(0, 1, 0));
+    camera->SetPosition(Vector3f(-5, 0, 5));
+    camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
     while(!stop) {
         start = clock();
         for (int i = 0; i < width; ++i) {
@@ -29,10 +32,7 @@ void RenderLoop::loop()
                 zBuffer[i+j*width] = std::numeric_limits<float>::min();
             }
         }
-
-        camera->SetUpDirection(Vector3f(0, 1, 0));
-        camera->SetPosition(Vector3f(-5, 0, 0));
-        camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
+        frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
         MatrixX4f view = transform->GetViewMatrix4x4(camera);
         MatrixX4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
 
@@ -53,9 +53,10 @@ void RenderLoop::loop()
                 world_coords[j] = model->vert(face[j]);
                 test_world_coords[j] = Vector4f(world_coords[j].x, world_coords[j].y, world_coords[j].z, 1.0);
                 Vector4f sc = projection * view * test_world_coords[j];
-//                qDebug() << sc.x() << sc.y() << sc.z() << sc.w();
+//                qDebug() << sc.x()/sc.w() << sc.y()/sc.w() << sc.z()/sc.w() << sc.w() <<  2 *0.1 * 100 / ((100-0.1)*sc.w()) + (100.1/99.9);
                 screen_coords[j] = Vec3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
-                screen_coords[j] = Vec3f((screen_coords[j].x+1.)*width/2., (screen_coords[j].y+1.)*height/2., world_coords[j].z);
+//                screen_coords[j].z = 2 *0.1 * 100 / ((100-0.1)*sc.w()) + (100.1/99.9);
+                screen_coords[j] = Vec3f((screen_coords[j].x+1.)*width/2., (screen_coords[j].y+1.)*height/2., screen_coords[j].z);
 
                 uv[j] = model->tex(tex[j]);
                 uv[j] = Vec2f(uv[j].u * diffuseImg.get_width(), uv[j].v * diffuseImg.get_height());
@@ -63,50 +64,56 @@ void RenderLoop::loop()
             }
 
             // triangleByBcFg(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, diffuseImg, uv[0], uv[1], uv[2]);
-            triangleByBc(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, triangleColor, 0.1f, 100.0f);
+            triangleByBc(screen_coords, uv, zBuffer, image, triangleColor, 0.1f, 100.0f);
         }
         finish = clock();
         deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
         emit frameOut(frameBuffer.data(), deltaFrameTime);
     }
+    qDebug() << "render quit";
 //        image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 //        image.write_tga_file("output.tga");
 }
 
-void RenderLoop::triangleByBc(Vec3f t0, Vec3f t1, Vec3f t2, float *zBuffer, TGAImage &image, Vec3f *triangleColor, float near, float far)
+void RenderLoop::triangleByBc(Vec3f *screen_point, Vec2f* uv, float *zBuffer, TGAImage &image, Vec3f *triangleColor, float near, float far)
 {
-    int minx = std::min(t2.x, std::min(t0.x, t1.x));
-    int miny = std::min(t2.y, std::min(t0.y, t1.y));
-    int maxx = std::max(t2.x, std::max(t0.x, t1.x));
-    int maxy = std::max(t2.y, std::max(t0.y, t1.y));
-    Vec3f pts[3] = {t0, t1, t2};
+    int minx = std::min(screen_point[2].x, std::min(screen_point[0].x, screen_point[1].x));
+    int miny = std::min(screen_point[2].y, std::min(screen_point[0].y, screen_point[1].y));
+    int maxx = std::max(screen_point[2].x, std::max(screen_point[0].x, screen_point[1].x));
+    int maxy = std::max(screen_point[2].y, std::max(screen_point[0].y, screen_point[1].y));
+
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
             Vec2i p(x, y);
-            Vec3f p_barycentric = barycentric(pts, p);
+            Vec3f p_barycentric = barycentric(screen_point, p);
             if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
             float z = 0;
             TGAColor color1(0, 0, 0, 255);
             Vec4c color2(0, 0, 0, 255);
-            for (int k = 0; k < 3; ++k) {
-                for (int i = 0; i < 3; ++i) {
-                    color1.raw[k] += int(triangleColor[i].raw[k] * p_barycentric.raw[i]);
-                    color2.raw[k] += int(triangleColor[i].raw[k] * p_barycentric.raw[i]);
-                    // std::cout << triangleColor[i] << std::endl;
-                }
-            }
-            // std::cout << (int)color.raw[0] << " " << (int)color.raw[1]<<" " << (int)color.raw[2] << " " << std::endl;
+
             for (int i = 0; i < 3; ++i) {
-                z += p_barycentric.raw[i] * pts[i].z ;
+
+                z += p_barycentric.raw[i] * 1/screen_point[i].z;
             }
 
-            z = z * 2.0 - 1.0;
-            z = (2 * near * far) / (far + near - z * (far-near));
-            qDebug() << z;
-            if (zBuffer[x+y*width] < z) {
-                zBuffer[x+y*width] = z;
+            z = 1/z;
+
+            for (int k = 0; k < 3; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    color2.raw[k] += int(triangleColor[i].raw[k] * z/screen_point[i].z * p_barycentric.raw[i]);
+                }
+                color2.raw[k] *= z;
+            }
+            float zb = 0;
+
+            for (int i = 0; i < 3; ++i) {
+
+                zb += p_barycentric.raw[i] * 1/screen_point[i].z;
+            }
+            zb = 1/zb;
+            if (zBuffer[x+y*width] < zb) {
+                zBuffer[x+y*width] = zb;
                 image.set(x, y, color1);
-                // std::cout << x << " " << y << " " << (int)color2.raw[0] << std::endl;
                 frameBuffer.WritePoint(x, y, color2);
             }
         }
@@ -217,6 +224,36 @@ void RenderLoop::line(int x0, int y0, int x1, int y1, TGAImage &image, TGAColor 
             image.set(x, y, color);
         }
     }
+}
+
+void RenderLoop::keyPressEvent(float speed, char type)
+{
+    Vector3f dir;
+    switch (type) {
+    case 'W':
+        dir = camera->GetLookDirection();
+        break;
+    case 'S':
+        dir = -camera->GetLookDirection();
+        break;
+    case 'A':
+        dir = -camera->GetLookDirection().cross(camera->GetUpDirection()).normalized();
+        break;
+    case 'D':
+        dir = camera->GetLookDirection().cross(camera->GetUpDirection()).normalized();
+        break;
+    }
+    camera->SetPosition(speed * dir + camera->GetPosition());
+}
+
+void RenderLoop::mouseMoveEvent(float pitch, float yaw)
+{
+    auto m1 = Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY());
+
+//    std::cout << m1.matrix() << std::endl;
+    auto m = m1.matrix();
+    camera->SetLookDirection(m * camera->GetLookDirection());
+    camera->SetUpDirection(  m * camera->GetUpDirection());
 }
 
 void RenderLoop::stopRender()
