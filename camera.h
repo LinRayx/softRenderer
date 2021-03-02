@@ -14,6 +14,7 @@ public:
     void SetLookDirection(Vector3f);
     void SetUpDirection(Vector3f);
     void SetPosition(Vector3f);
+    void Rotate(Matrix3f);
 private:
     Vector3f up;
     Vector3f pos;

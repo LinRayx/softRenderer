@@ -39,3 +39,9 @@ void Camera::SetPosition(Vector3f _pos)
 {
     pos = _pos;
 }
+
+void Camera::Rotate(Matrix3f m)
+{
+    lookDir = m * lookDir;
+    up = m * up;
+}
