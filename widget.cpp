@@ -30,6 +30,7 @@ Widget::~Widget()
     loopThread->wait();
     if(canvas) delete canvas;
     if(loopThread)delete loopThread;
+    if(loop) delete loop;
     loop = nullptr;
     canvas = nullptr;
     loopThread = nullptr;
@@ -53,8 +54,8 @@ void Widget::mouseMoveEvent(QMouseEvent *e)
     float nx = e->pos().x();
     float ny = e->pos().y();
 
-    float xoffset = nx - lastX;
-    float yoffset = lastY - ny;
+    float xoffset = (nx - lastX) * deltaFrameTime;
+    float yoffset = (lastY - ny) * deltaFrameTime;
 
     lastX = nx;
     lastY = ny;

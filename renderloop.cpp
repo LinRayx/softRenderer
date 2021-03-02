@@ -8,6 +8,17 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
     transform = new MatrixTransform;
 }
 
+RenderLoop::~RenderLoop()
+{
+
+    if(model) delete model;
+
+    if(camera) delete camera;
+
+    if(transform) delete transform;
+
+}
+
 void RenderLoop::loop()
 {
     frameBuffer.Resize(width, height);
@@ -17,7 +28,7 @@ void RenderLoop::loop()
     diffuseImg.flip_vertically();
     TGAImage image(width, height, TGAImage::RGBA);
     std::string objPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "african_head.obj";
-    Model* model = new Model(objPath.c_str());
+    model = new Model(objPath.c_str());
     float *zBuffer = new float[width*height];
 
     Vec3f light_dir(0,0,-1);
@@ -25,6 +36,7 @@ void RenderLoop::loop()
     camera->SetUpDirection(Vector3f(0, 1, 0));
     camera->SetPosition(Vector3f(-5, 0, 5));
     camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
+
     while(!stop) {
         start = clock();
         for (int i = 0; i < width; ++i) {
@@ -33,6 +45,8 @@ void RenderLoop::loop()
             }
         }
         frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
+//        qDebug() << start;
+        MatrixX4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, 30.0f, 0));
         MatrixX4f view = transform->GetViewMatrix4x4(camera);
         MatrixX4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
 
@@ -51,9 +65,11 @@ void RenderLoop::loop()
 
             for (int j = 0; j <3; ++j) {
                 world_coords[j] = model->vert(face[j]);
+
                 test_world_coords[j] = Vector4f(world_coords[j].x, world_coords[j].y, world_coords[j].z, 1.0);
-                Vector4f sc = projection * view * test_world_coords[j];
-//                qDebug() << sc.x()/sc.w() << sc.y()/sc.w() << sc.z()/sc.w() << sc.w() <<  2 *0.1 * 100 / ((100-0.1)*sc.w()) + (100.1/99.9);
+                Vector4f sc = projection * view * rotate * test_world_coords[j];
+
+//                qDebug() << sc.w();
                 screen_coords[j] = Vec3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
 //                screen_coords[j].z = 2 *0.1 * 100 / ((100-0.1)*sc.w()) + (100.1/99.9);
                 screen_coords[j] = Vec3f((screen_coords[j].x+1.)*width/2., (screen_coords[j].y+1.)*height/2., screen_coords[j].z);
@@ -70,6 +86,7 @@ void RenderLoop::loop()
         deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
         emit frameOut(frameBuffer.data(), deltaFrameTime);
     }
+    delete zBuffer;
     qDebug() << "render quit";
 //        image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
 //        image.write_tga_file("output.tga");
@@ -111,6 +128,9 @@ void RenderLoop::triangleByBc(Vec3f *screen_point, Vec2f* uv, float *zBuffer, TG
                 zb += p_barycentric.raw[i] * 1/screen_point[i].z;
             }
             zb = 1/zb;
+//            qDebug() << zb << x  << y << p_barycentric.x << p_barycentric.y << p_barycentric.z;
+            if (abs(x + y* width) >= width*height) continue;
+//            qDebug() << zb << x  << y; //竟然爆内存
             if (zBuffer[x+y*width] < zb) {
                 zBuffer[x+y*width] = zb;
                 image.set(x, y, color1);

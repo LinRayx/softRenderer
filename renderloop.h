@@ -9,6 +9,7 @@ class RenderLoop : public QObject
      Q_OBJECT
 public:
     explicit RenderLoop(int _width, int _height, QObject *parent = nullptr);
+    ~RenderLoop() override;
 
     void triangleByBc(Vec3f *screen_point, Vec2f* uv, float *zBuffer, TGAImage &image, Vec3f *triangleColor, float near, float far);
     Vec3f texture(Vec2f uv, TGAImage &image);
