@@ -15,6 +15,9 @@ public:
     Matrix4f GetModelMatrix4x4(Vector3f trans, Vector3f rot, Vector3f scale);
     Matrix4f GetViewMatrix4x4(Camera *camera);
 
+
+    Matrix3f GetEularMatrix3x3(float pitch, float yaw, float roll);
+    float Radians(float angle);
 private:
     Matrix4f _getRotationMatrix4x4(Vector3f rot, float theta);
 };
