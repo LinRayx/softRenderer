@@ -19,7 +19,7 @@ public:
     explicit Widget(QWidget *parent = nullptr);
     ~Widget() override;
 
-    void receiveFrame(unsigned char* image, double deltaFrameTime);
+    void receiveFrame(unsigned char* image, double deltaFrameTime, int fps);
     void fpsTimeOut();
 protected:
     void keyPressEvent(QKeyEvent *) override;
@@ -35,6 +35,7 @@ private:
     double deltaFrameTime;
     float lastX, lastY;
     float yaw, pitch;
+    int fps;
 };
 
 #endif // WIDGET_H

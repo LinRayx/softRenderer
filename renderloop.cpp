@@ -1,6 +1,5 @@
 #include "renderloop.h"
-#include <QDebug>
-#include <QDir>
+#include "renderCore/texture.h"
 RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(parent), width(_width), height(_height)
 {
     stop = false;
@@ -21,9 +20,13 @@ RenderLoop::~RenderLoop()
 
 void RenderLoop::loop()
 {
+
     frameBuffer.Resize(width, height);
     TGAImage diffuseImg;
     std::string diffuseImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
+//    Texture text;
+//    text.loadTexture(diffuseImgPath.c_str());
+//    return;
     if (diffuseImg.read_tga_file(diffuseImgPath.c_str()) == false) return;
     diffuseImg.flip_vertically();
     TGAImage image(width, height, TGAImage::RGBA);
@@ -34,8 +37,9 @@ void RenderLoop::loop()
     Vec3f light_dir(0,0,-1);
 
     camera->SetUpDirection(Vector3f(0, 1, 0));
-    camera->SetPosition(Vector3f(-5, 0, 5));
+    camera->SetPosition(Vector3f(0, 0, 5));
     camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
+    int fps = 0;
 
     while(!stop) {
         start = clock();
@@ -49,75 +53,75 @@ void RenderLoop::loop()
         MatrixX4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, 30.0f, 0));
         MatrixX4f view = transform->GetViewMatrix4x4(camera);
         MatrixX4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
-
+        std::vector<int> face, tex;
+        auto it1 = model->faces_.begin();
+        auto it2 = model->faceTexs_.begin();
+        int cnt = 0;
         for (int i = 0; i < model->nfaces(); ++i) {
-            std::vector<int> face = model->face(i);
-            std::vector<int> tex = model->faceTex(i);
-
+            face = *(it1+i);
+            tex = *(it2+i);
             Vector4f test_world_coords[3];
-            Vec3f screen_coords[3];
+            Vector3f screen_coords[3];
             Vec3f world_coords[3];
-            Vec2f uv[3];
+            Vector2f uvs[3];
             Vec3f triangleColor[3];
-//            Vec3f n = (world_coords[2] - world_coords[0]) ^ (world_coords[1] - world_coords[0]);
-//            n.normalize();
-            // float intensity = n * light_dir;
-
+            Vector3f perCoords[3];
             for (int j = 0; j <3; ++j) {
                 world_coords[j] = model->vert(face[j]);
 
                 test_world_coords[j] = Vector4f(world_coords[j].x, world_coords[j].y, world_coords[j].z, 1.0);
                 Vector4f sc = projection * view * rotate * test_world_coords[j];
-
-//                qDebug() << sc.w();
-                screen_coords[j] = Vec3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
-//                screen_coords[j].z = 2 *0.1 * 100 / ((100-0.1)*sc.w()) + (100.1/99.9);
-                screen_coords[j] = Vec3f((screen_coords[j].x+1.)*width/2., (screen_coords[j].y+1.)*height/2., screen_coords[j].z);
-
-                uv[j] = model->tex(tex[j]);
-                uv[j] = Vec2f(uv[j].u * diffuseImg.get_width(), uv[j].v * diffuseImg.get_height());
-                triangleColor[j] = texture(uv[j], diffuseImg);
+                screen_coords[j] = Vector3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
+                screen_coords[j] = Vector3f((screen_coords[j].x()+1.)*width/2., (screen_coords[j].y()+1.)*height/2., screen_coords[j].z());
+                Vec2f uv = model->tex(tex[j]);
+                uvs[j] = Vector2f(uv.u * diffuseImg.get_width(), uv.v * diffuseImg.get_height());
             }
-
-            // triangleByBcFg(screen_coords[0], screen_coords[1], screen_coords[2], zBuffer, image, diffuseImg, uv[0], uv[1], uv[2]);
-            triangleByBc(screen_coords, uv, zBuffer, image, triangleColor, 0.1f, 100.0f);
+//            auto t = clock();
+            if (faceCulling(perCoords[0], perCoords[1], perCoords[2])) {
+                continue;
+            }
+            triangleByBc(screen_coords, uvs, zBuffer, diffuseImg, 0.1f, 100.0f);
+//            auto s = clock();
+//            std::cout << (double)(s-t)/CLOCKS_PER_SEC * model->nfaces() << std::endl;
         }
+
         finish = clock();
         deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
-        emit frameOut(frameBuffer.data(), deltaFrameTime);
+//        std::cout << cnt << std::endl;
+        emit frameOut(frameBuffer.data(), deltaFrameTime, fps);
     }
-    delete zBuffer;
+    delete[] zBuffer;
     qDebug() << "render quit";
-//        image.flip_vertically(); // i want to have the origin at the left bottom corner of the image
-//        image.write_tga_file("output.tga");
 }
 
-void RenderLoop::triangleByBc(Vec3f *screen_point, Vec2f* uv, float *zBuffer, TGAImage &image, Vec3f *triangleColor, float near, float far)
+void RenderLoop::triangleByBc(Vector3f *screen_point, Vector2f* uvs, float *zBuffer, TGAImage &image, float near, float far)
 {
-    int minx = std::min(screen_point[2].x, std::min(screen_point[0].x, screen_point[1].x));
-    int miny = std::min(screen_point[2].y, std::min(screen_point[0].y, screen_point[1].y));
-    int maxx = std::max(screen_point[2].x, std::max(screen_point[0].x, screen_point[1].x));
-    int maxy = std::max(screen_point[2].y, std::max(screen_point[0].y, screen_point[1].y));
-
+    int minx = std::min(screen_point[2].x(), std::min(screen_point[0].x(), screen_point[1].x()));
+    int miny = std::min(screen_point[2].y(), std::min(screen_point[0].y(), screen_point[1].y()));
+    int maxx = std::max(screen_point[2].x(), std::max(screen_point[0].x(), screen_point[1].x()));
+    int maxy = std::max(screen_point[2].y(), std::max(screen_point[0].y(), screen_point[1].y()));
+    Vector3i triangleColor[3];
+    for (int i = 0; i < 3; ++i) {
+        triangleColor[i] = texture(uvs[i], image);
+    }
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
-            Vec2i p(x, y);
-            Vec3f p_barycentric = barycentric(screen_point, p);
-            if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
+            Vector2i p(x, y);
+            Vector3f p_barycentric = barycentric(screen_point, p);
+            if (p_barycentric.x() < 0 || p_barycentric.y() < 0 || p_barycentric.z() < 0) continue;
             float z = 0;
-            TGAColor color1(0, 0, 0, 255);
             Vec4c color2(0, 0, 0, 255);
 
             for (int i = 0; i < 3; ++i) {
 
-                z += p_barycentric.raw[i] * 1/screen_point[i].z;
+                z += p_barycentric[i] * 1/screen_point[i].z();
             }
 
             z = 1/z;
 
             for (int k = 0; k < 3; ++k) {
                 for (int i = 0; i < 3; ++i) {
-                    color2.raw[k] += int(triangleColor[i].raw[k] * z/screen_point[i].z * p_barycentric.raw[i]);
+                    color2.raw[k] += int(triangleColor[i][k] * z/screen_point[i].z() * p_barycentric[i]);
                 }
                 color2.raw[k] *= z;
             }
@@ -125,37 +129,34 @@ void RenderLoop::triangleByBc(Vec3f *screen_point, Vec2f* uv, float *zBuffer, TG
 
             for (int i = 0; i < 3; ++i) {
 
-                zb += p_barycentric.raw[i] * 1/screen_point[i].z;
+                zb += p_barycentric[i] * 1/screen_point[i].z();
             }
             zb = 1/zb;
-//            qDebug() << zb << x  << y << p_barycentric.x << p_barycentric.y << p_barycentric.z;
             if (abs(x + y* width) >= width*height) continue;
-//            qDebug() << zb << x  << y; //竟然爆内存
             if (zBuffer[x+y*width] < zb) {
                 zBuffer[x+y*width] = zb;
-                image.set(x, y, color1);
                 frameBuffer.WritePoint(x, y, color2);
             }
         }
     }
 }
 
-Vec3f RenderLoop::texture(Vec2f uv, TGAImage &image)
+Vector3i RenderLoop::texture(Vector2f& uv, TGAImage &image)
 {
-    Vec2i leftCorner = Vec2i((int)uv.u, (int)uv.v);
-    Vec2i rightCorner = Vec2i(int(uv.u)+1, (int)uv.v);
-    Vec2i leftUp = Vec2i((int)uv.u, int(uv.v)+1);
-    Vec2i rightUp = Vec2i(int(uv.u)+1, int(uv.v)+1);
+    Vector2i leftCorner = Vector2i((int)uv.x(), (int)uv.y());
+    Vector2i rightCorner = Vector2i(int(uv.x())+1, (int)uv.y());
+    Vector2i leftUp = Vector2i((int)uv.x(), int(uv.y())+1);
+    Vector2i rightUp = Vector2i(int(uv.x())+1, int(uv.y())+1);
 
 
-    TGAColor leftCornerColor = image.get(leftCorner.u, leftCorner.v);
+    TGAColor leftCornerColor = image.get(leftCorner.x(), leftCorner.y());
 
-    TGAColor rightCornerColor = image.get(rightCorner.u, rightCorner.v);
-    TGAColor leftUpColor = image.get(leftUp.u, leftUp.v);
-    TGAColor rightUpColor = image.get(rightUp.u, rightUp.v);
+    TGAColor rightCornerColor = image.get(rightCorner.x(), rightCorner.y());
+    TGAColor leftUpColor = image.get(leftUp.x(), leftUp.y());
+    TGAColor rightUpColor = image.get(rightUp.x(), rightUp.y());
 
-    float t1 = (uv.u - leftCorner.u );
-    float t2 = (uv.v - leftCorner.v);
+    float t1 = (uv.x() - leftCorner.x() );
+    float t2 = (uv.y() - leftCorner.y());
     // std::cout << t1 <<" " << t2 << std::endl;
     TGAColor down = TGAColor(0, 0, 0, 255);
     TGAColor up = TGAColor(0, 0, 0, 255);
@@ -164,26 +165,23 @@ Vec3f RenderLoop::texture(Vec2f uv, TGAImage &image)
         up.raw[i] = leftUpColor.raw[i] * t1 + rightUpColor.raw[i] * (1-t1);
     }
 
-    Vec3f res;
+    Vector3i res;
     for (int i = 0; i < 3; ++i) {
-        res.raw[i] = (int)(down.raw[i] * t2 + up.raw[i] * (1-t2));
+        res[i] = (int)(down.raw[i] * t2 + up.raw[i] * (1-t2));
     }
     return res;
 }
 
-Vec3f RenderLoop::barycentric(Vec3f *pts, Vec2i p)
+Vector3f RenderLoop::barycentric(Vector3f *pts, Vector2i& p)
 {
-    Vec3f u = cross(Vec3f(pts[2].x-pts[0].x, pts[1].x-pts[0].x, pts[0].x-p.x),
-        Vec3f(pts[2].y-pts[0].y, pts[1].y-pts[0].y, pts[0].y-p.y));
-    if (std::abs(u.z) < 1)
-        return Vec3f(-1, 1, 1);
-    return Vec3f(1-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
+    Vector3f u = Vector3f(pts[2].x()-pts[0].x(), pts[1].x()-pts[0].x(), pts[0].x()-p.x()).cross(
+        Vector3f(pts[2].y()-pts[0].y(), pts[1].y()-pts[0].y(), pts[0].y()-p.y()));
+    if (std::abs(u.z()) < 1)
+        return Vector3f(-1, 1, 1);
+    return Vector3f(1-(u.x()+u.y())/u.z(), u.y()/u.z(), u.x()/u.z());
 }
 
-Vec3f RenderLoop::cross(const Vec3f &a, const Vec3f &b)
-{
-    return Vec3f(a.y*b.z - a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
-}
+
 
 void RenderLoop::triangle(Vec2i t0, Vec2i t1, Vec2i t2, TGAImage &image, TGAColor color)
 {
@@ -268,12 +266,17 @@ void RenderLoop::keyPressEvent(float speed, char type)
 
 void RenderLoop::mouseMoveEvent(float pitch, float yaw)
 {
-    auto m1 = Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitX()) * Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY());
+    Matrix3f m = transform->GetEularMatrix3x3(transform->Radians(pitch), transform->Radians(yaw), 0);
+    camera->Rotate(m);
+}
 
-//    std::cout << m1.matrix() << std::endl;
-    auto m = m1.matrix();
-    camera->SetLookDirection(m * camera->GetLookDirection());
-    camera->SetUpDirection(  m * camera->GetUpDirection());
+bool RenderLoop::faceCulling(const Vector3f &v1, const Vector3f &v2, const Vector3f &v3)
+{
+    Vector3f tmp1 = v2-v1;
+    Vector3f tmp2 = v3-v2;
+    Vector3f norm = tmp1.cross(tmp2);
+    Vector3f view(0, 0, 1);
+    return view.dot(norm) > 0;
 }
 
 void RenderLoop::stopRender()

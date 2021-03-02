@@ -9,6 +9,7 @@ Widget::Widget(QWidget *parent) :
     canvas = nullptr;
     pitch = yaw = 0;
     deltaFrameTime = 0;
+    fps = 0;
     loop = new RenderLoop(800, 600);
     loopThread = new QThread(this);
     loop->moveToThread(loopThread);
@@ -69,29 +70,24 @@ void Widget::mouseMoveEvent(QMouseEvent *e)
 
     if (pitch > 89.0f) pitch = 89.0f;
     if (pitch < -89.0f) pitch = -89.0f;
-    Vector3f front;
-
-//    front.x() = cos(yaw/180*EIGEN_PI) * cos(pitch/180*EIGEN_PI);
-//    front.y() = sin(pitch/180*EIGEN_PI);
-//    front.z() = sin(yaw/180*EIGEN_PI) * cos(pitch/180*EIGEN_PI);
-
     loop->mouseMoveEvent(pitch, yaw);
 
 }
 
-void Widget::receiveFrame(unsigned char* image, double deltaFrameTime) {
+void Widget::receiveFrame(unsigned char* image, double deltaFrameTime, int fps) {
     if(canvas)
         delete canvas;
 
     canvas = new QImage(image, 800, 600, QImage::Format_RGBA8888);
     this->deltaFrameTime = deltaFrameTime;
+    this->fps = fps - this->fps;
     update();
 
 }
 
 void Widget::fpsTimeOut()
 {
-    this->setWindowTitle(QString("SoftRenderer deltaFrame: %1").arg(this->deltaFrameTime));
+    this->setWindowTitle(QString("SoftRenderer deltaFrame: %1 fps: %2").arg(this->deltaFrameTime));
 }
 
 void Widget::keyPressEvent(QKeyEvent *e)
