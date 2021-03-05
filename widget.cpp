@@ -10,7 +10,8 @@ Widget::Widget(QWidget *parent) :
     pitch = yaw = 0;
     deltaFrameTime = 0;
     fps = 0;
-    loop = new RenderLoop(800, 600);
+    loop = new RenderLoop(300, 300);
+
     loopThread = new QThread(this);
     loop->moveToThread(loopThread);
     connect(loopThread,&QThread::started,loop,&RenderLoop::loop);
@@ -78,7 +79,7 @@ void Widget::receiveFrame(unsigned char* image, double deltaFrameTime, int fps) 
     if(canvas)
         delete canvas;
 
-    canvas = new QImage(image, 800, 600, QImage::Format_RGBA8888);
+    canvas = new QImage(image, width(), height(), QImage::Format_RGBA8888);
     this->deltaFrameTime = deltaFrameTime;
     this->fps = fps - this->fps;
     update();

@@ -79,13 +79,17 @@ Matrix4f MatrixTransform::GetViewMatrix4x4(Camera *camera)
 
 Matrix4f MatrixTransform::_getRotationMatrix4x4(Vector3f rot, float theta)
 {
-    Eigen::AngleAxisf mat(theta, rot);
-    Isometry3f T;
-    T.matrix().block(0, 0, 3, 3) = mat.toRotationMatrix();
-    T.matrix().col(3) = Vector3f::Zero().homogeneous();
-    T.matrix().row(3) = Vector4f(0, 0, 0, 1);
-//    std::cout <<theta <<" " << T.matrix() << std::endl;
-    return Matrix4f::Identity();
+
+    Matrix4f m;
+    float c = cosf(theta);
+    float s = sinf(theta);
+//    qDebug() << theta << c << s;
+    float Ax = rot.x(), Ay = rot.y(), Az = rot.z();
+    m << c+(1.f-c)*Ax*Ax, (1.f-c)*Ax*Ay-s*Az, (1.f-c)*Ax*Az+s*Ay, 0.f,
+            (1.f-c)*Ax*Ay+s*Az, c+(1.f-c)*Ay*Ay, (1.f-c)*Ay*Az-s*Ax, 0.f,
+            (1-c)*Ax*Az-s*Ay, (1-c)*Ay*Az+s*Ax, c+(1-c)*Az*Az, 0.f,
+            0.f, 0.f, 0.f, 1.f;
+    return m;
 }
 
 Matrix3f MatrixTransform::GetEularMatrix3x3(float pitch, float yaw, float roll) {

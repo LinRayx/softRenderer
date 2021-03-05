@@ -3,7 +3,8 @@
 #include "utils.h"
 #include "MatrixTransform.h"
 #include <QObject>
-
+#include "shader/phoneShader.h"
+#include "renderCore/fragmentdata.h"
 class RenderLoop : public QObject
 {
      Q_OBJECT
@@ -11,7 +12,7 @@ public:
     explicit RenderLoop(int _width, int _height, QObject *parent = nullptr);
     ~RenderLoop() override;
 
-    void triangleByBc(Vector3f *screen_point, Vector2f *uv, float *zBuffer, TGAImage &image, float near, float far);
+    void triangleByBc(Vector3f *screen_point, Vector2f *uv, Vector3f *world_pos, Vector3f& normal, TGAImage &normalImg, float *zBuffer, TGAImage &image, float near, float far, int& tm);
     Vector3i texture(Vector2f& uv, TGAImage &image);
     Vector3f barycentric(Vector3f *pts, Vector2i& p);
     Vector3f cross(const Vector3f& a, const Vector3f& b);
@@ -21,8 +22,8 @@ public:
     void mouseMoveEvent(float pitch, float yaw);
     bool faceCulling(const Vector3f& v1, const Vector3f& v2, const Vector3f& v3);
     Model *model;
-    int width  = 800;
-    int height = 600;
+    int width;
+    int height;
     FrameBuffer frameBuffer;
     void stopRender();
     bool stop;
@@ -30,6 +31,8 @@ public:
     double deltaFrameTime;
     MatrixTransform* transform;
     Camera* camera;
+    phoneShader* shader;
+    Vector3f lightPos;
 signals:
     void frameOut(unsigned char *image, double deltaFrameTime, int fps);
 

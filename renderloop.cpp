@@ -1,10 +1,10 @@
 #include "renderloop.h"
-#include "renderCore/texture.h"
 RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(parent), width(_width), height(_height)
 {
     stop = false;
     camera = new Camera;
     transform = new MatrixTransform;
+    shader = new phoneShader;
 }
 
 RenderLoop::~RenderLoop()
@@ -16,31 +16,59 @@ RenderLoop::~RenderLoop()
 
     if(transform) delete transform;
 
+    if(shader) delete shader;
+
 }
 
 void RenderLoop::loop()
 {
 
     frameBuffer.Resize(width, height);
-    TGAImage diffuseImg;
+    TGAImage diffuseImg, normalImg;
     std::string diffuseImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
+    std::string normalImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
 //    Texture text;
 //    text.loadTexture(diffuseImgPath.c_str());
 //    return;
     if (diffuseImg.read_tga_file(diffuseImgPath.c_str()) == false) return;
     diffuseImg.flip_vertically();
+    if (normalImg.read_tga_file(normalImgPath.c_str()) == false) return;
+    normalImg.flip_vertically();
     TGAImage image(width, height, TGAImage::RGBA);
     std::string objPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "african_head.obj";
     model = new Model(objPath.c_str());
     float *zBuffer = new float[width*height];
 
     Vec3f light_dir(0,0,-1);
-
+    int fps = 0;
     camera->SetUpDirection(Vector3f(0, 1, 0));
     camera->SetPosition(Vector3f(0, 0, 5));
     camera->SetLookDirection(Vector3f(0, 0, 0)-camera->GetPosition());
-    int fps = 0;
-
+    // 加载模型
+    std::vector<std::vector<Vector3f>> faces;
+    std::vector<std::vector<Vector2f>> texs;
+    std::vector<Vector3f> v1;
+    std::vector<Vector2f> v2;
+    for (int i = 0; i < model->nfaces(); ++i) {
+        v1.clear();
+        v2.clear();
+        auto tri = model->face(i);
+        auto texId = model->faceTex(i);
+        for (int j = 0; j < 3; ++j) {
+            Vec3f pos = model->vert(tri[j]);
+            Vec2f uv = model->tex(texId[j]);
+            v1.push_back(Vector3f(pos.x, pos.y, pos.z));
+            v2.push_back(Vector2f(uv.x, uv.y));
+        }
+        faces.push_back(v1);
+        texs.push_back(v2);
+    }
+    // 加载模型End
+    shader->setDiffuseImage(diffuseImg);
+    shader->setNormalImage(normalImg);
+    shader->setScreenSize(width, height);
+    std::cout << faces.size() << std::endl;
+    float speed = 0.01f, rot = 0.0f;
     while(!stop) {
         start = clock();
         for (int i = 0; i < width; ++i) {
@@ -49,105 +77,129 @@ void RenderLoop::loop()
             }
         }
         frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
-//        qDebug() << start;
-        MatrixX4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, 30.0f, 0));
-        MatrixX4f view = transform->GetViewMatrix4x4(camera);
-        MatrixX4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
-        std::vector<int> face, tex;
-        auto it1 = model->faces_.begin();
-        auto it2 = model->faceTexs_.begin();
+        if (rot > 360) rot = 0;
+
+        rot = rot + 300 * speed;
+        Matrix4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, rot, 0));
+        Matrix4f view = transform->GetViewMatrix4x4(camera);
+        Matrix4f projection = transform->GetPersepectiveMatrix4x4((float)45/180*EIGEN_PI, (float)width/height, 0.1f, 100.0f);
+        Vector3f screen_coords[3];
+        Vector3f world_coords[3];
+        Vector2f uvs[3];
+//        MatrixX4f MVP = projection * view * rotate;
+        shader->setModelMat(rotate);
+        shader->setViewMat(view);
+        shader->setProjectionMat(projection);
+//        double tot = 0;
         int cnt = 0;
-        for (int i = 0; i < model->nfaces(); ++i) {
-            face = *(it1+i);
-            tex = *(it2+i);
-            Vector4f test_world_coords[3];
-            Vector3f screen_coords[3];
-            Vec3f world_coords[3];
-            Vector2f uvs[3];
-            Vec3f triangleColor[3];
-            Vector3f perCoords[3];
-            for (int j = 0; j <3; ++j) {
-                world_coords[j] = model->vert(face[j]);
-
-                test_world_coords[j] = Vector4f(world_coords[j].x, world_coords[j].y, world_coords[j].z, 1.0);
-                Vector4f sc = projection * view * rotate * test_world_coords[j];
-                screen_coords[j] = Vector3f(sc.x()/sc.w(), sc.y()/sc.w(), sc.z()/sc.w());
-                screen_coords[j] = Vector3f((screen_coords[j].x()+1.)*width/2., (screen_coords[j].y()+1.)*height/2., screen_coords[j].z());
-                Vec2f uv = model->tex(tex[j]);
-                uvs[j] = Vector2f(uv.u * diffuseImg.get_width(), uv.v * diffuseImg.get_height());
+        // 几何阶段
+        for (size_t i = 0; i < faces.size(); ++i) {
+            for (size_t j = 0; j < faces[i].size(); ++j) {
+            // 坐标变换 vertexShader
+                screen_coords[j] = shader->vertexShader(faces[i][j]);
+                world_coords[j] = rotate * faces[i][j];
+                uvs[j] = texs[i][j];
             }
-//            auto t = clock();
-            if (faceCulling(perCoords[0], perCoords[1], perCoords[2])) {
-                continue;
-            }
-            triangleByBc(screen_coords, uvs, zBuffer, diffuseImg, 0.1f, 100.0f);
+            if (faceCulling(screen_coords[0], screen_coords[1], screen_coords[2])) continue;
+            cnt++;
 //            auto s = clock();
-//            std::cout << (double)(s-t)/CLOCKS_PER_SEC * model->nfaces() << std::endl;
+            triangleByBc(screen_coords, uvs, world_coords, normalImg, zBuffer, diffuseImg, 0.1f, 100.0f, cnt);
+//            auto e = clock();
+//            std::cout << (double)(e-s)/CLOCKS_PER_SEC << std::endl;
+//            tot += (double)(e-s)/CLOCKS_PER_SEC;
         }
-
+//        std::cout << cnt << std::endl;
         finish = clock();
         deltaFrameTime = (double)(finish-start)/CLOCKS_PER_SEC;
-//        std::cout << cnt << std::endl;
+//        std::cout << (double)(e-s)/CLOCKS_PER_SEC << " " << (double)(finish-start)/CLOCKS_PER_SEC <<  std::endl;
         emit frameOut(frameBuffer.data(), deltaFrameTime, fps);
     }
     delete[] zBuffer;
     qDebug() << "render quit";
 }
-
-void RenderLoop::triangleByBc(Vector3f *screen_point, Vector2f* uvs, float *zBuffer, TGAImage &image, float near, float far)
+// 顶点坐标, 法线, 纹理都会在这个阶段被插值
+void RenderLoop::triangleByBc(Vector3f *screen_point, Vector2f* uvs, Vector3f* world_pos, Vector3f& normal, TGAImage& normalImg, float *zBuffer, TGAImage &image, float near, float far, int& tm)
 {
-    int minx = std::min(screen_point[2].x(), std::min(screen_point[0].x(), screen_point[1].x()));
-    int miny = std::min(screen_point[2].y(), std::min(screen_point[0].y(), screen_point[1].y()));
-    int maxx = std::max(screen_point[2].x(), std::max(screen_point[0].x(), screen_point[1].x()));
-    int maxy = std::max(screen_point[2].y(), std::max(screen_point[0].y(), screen_point[1].y()));
-    Vector3i triangleColor[3];
-    for (int i = 0; i < 3; ++i) {
-        triangleColor[i] = texture(uvs[i], image);
-    }
+
+    int minx = std::min(screen_point[2][0], std::min(screen_point[0][0], screen_point[1][0]));
+    int miny = std::min(screen_point[2][1], std::min(screen_point[0][1], screen_point[1][1]));
+    int maxx = std::max(screen_point[2][0], std::max(screen_point[0][0], screen_point[1][0]));
+    int maxy = std::max(screen_point[2][1], std::max(screen_point[0][1], screen_point[1][1]));
+
+    Vector2i p;
+    Vector3f p_barycentric;
+    Vec4c color2;
+    int cnt = 0;
+
+    FragmentData fragmentData;
+
+    // 计算每个点的切线空间矩阵，应该放在顶点着色器中，传出切线空间的信息
+    Vector3f E1 = world_pos[2] - world_pos[0];
+    Vector3f E2 = world_pos[1] - world_pos[0];
+    Vector2f deltaUV1 = uvs[2] - uvs[0];
+    Vector2f deltaUV2 = uvs[1] - uvs[0];
+
+    float f = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV2.x() * deltaUV1.y());
+    Matrix3f TBN;
+    Vector3f tangent = Vector3f(f * (deltaUV2.y() * E1.x() - deltaUV1.y() * E2.x()), f * (deltaUV2.y() * E1.y() - deltaUV1.y() * E2.y()), f * (deltaUV2.y() * E1.z() - deltaUV1.y() * E2.z())).normalized();
+//    Vector3f bitangent = Vector3f(-f * (deltaUV2.y() * E1.x() + deltaUV1.y() * E2.x()), -f * (deltaUV2.y() * E1.y() + deltaUV1.y() * E2.y()), -f * (deltaUV2.y() * E1.z() + deltaUV1.y() * E2.z())).normalized();
+
+    tangent = (tangent - tangent.dot(normal) * normal).normalized();
+    Vector3f bitangent = tangent.cross(normal).normalized();
+    TBN << tangent.x(), tangent.y(), tangent.z(),
+            bitangent.x(), bitangent.y(), bitangent.z(),
+            normal.x(), normal.y(), normal.z();
+
+    fragmentData.tangentLightPos = TBN * lightPos;
+    fragmentData.tangentViewPos = TBN * camera->GetPosition();
+
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
-            Vector2i p(x, y);
-            Vector3f p_barycentric = barycentric(screen_point, p);
+            p[0] = x; p[1] = y;
+            p_barycentric = barycentric(screen_point, p);
+
             if (p_barycentric.x() < 0 || p_barycentric.y() < 0 || p_barycentric.z() < 0) continue;
+            cnt++;
             float z = 0;
-            Vec4c color2(0, 0, 0, 255);
-
             for (int i = 0; i < 3; ++i) {
-
                 z += p_barycentric[i] * 1/screen_point[i].z();
             }
-
             z = 1/z;
+            fragmentData.uv[0] = fragmentData.uv[1] = 0.0f;
+            for (int k = 0; k < 2; ++k) {
+                for (int i = 0; i < 3; ++i) {
+                    fragmentData.uv[k] += (uvs[i][k] * z/screen_point[i].z() * p_barycentric[i]);
+                }
+            }
 
             for (int k = 0; k < 3; ++k) {
                 for (int i = 0; i < 3; ++i) {
-                    color2.raw[k] += int(triangleColor[i][k] * z/screen_point[i].z() * p_barycentric[i]);
+                    fragmentData.world_pos[k] += (world_pos[i][k] * p_barycentric[i]);
                 }
-                color2.raw[k] *= z;
             }
-            float zb = 0;
+            fragmentData.tangentWorldPos = TBN * fragmentData.world_pos;
 
-            for (int i = 0; i < 3; ++i) {
-
-                zb += p_barycentric[i] * 1/screen_point[i].z();
-            }
-            zb = 1/zb;
             if (abs(x + y* width) >= width*height) continue;
-            if (zBuffer[x+y*width] < zb) {
-                zBuffer[x+y*width] = zb;
-                frameBuffer.WritePoint(x, y, color2);
+            if (zBuffer[x+y*width] < z) {
+                zBuffer[x+y*width] = z;
+                // 通过深度测试
+//                shader->setUV(uv);
+                Vector4f color = shader->fragmentShader(fragmentData);
+
+                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
             }
         }
     }
+    tm += cnt;
+//    std::cout << cnt << std::endl;
 }
 
 Vector3i RenderLoop::texture(Vector2f& uv, TGAImage &image)
 {
-    Vector2i leftCorner = Vector2i((int)uv.x(), (int)uv.y());
+    Vector2i leftCorner = Vector2i(static_cast<int>(uv.x()), static_cast<int>(uv.y()));
     Vector2i rightCorner = Vector2i(int(uv.x())+1, (int)uv.y());
     Vector2i leftUp = Vector2i((int)uv.x(), int(uv.y())+1);
     Vector2i rightUp = Vector2i(int(uv.x())+1, int(uv.y())+1);
-
 
     TGAColor leftCornerColor = image.get(leftCorner.x(), leftCorner.y());
 

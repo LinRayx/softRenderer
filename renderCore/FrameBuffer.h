@@ -1,5 +1,5 @@
-#ifndef __FRAMEBUFFER_H__
-#define __FRAMEBUFFER_H__
+#ifndef FRAMEBUFFER_H
+#define FRAMEBUFFER_H
 #include "geometry.h"
 #include <vector>
 class FrameBuffer {
