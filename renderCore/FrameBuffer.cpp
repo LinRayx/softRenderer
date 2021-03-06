@@ -3,7 +3,7 @@
 void FrameBuffer::Resize(const int& w, const int& h) {
     Width = w;
     Height = h;
-    colorBuffer.resize(w*h*4);
+    colorBuffer.resize(static_cast<unsigned int>(w*h*4));
 }
 
 void FrameBuffer::ClearColorBuffer(const Vec4c& color) {

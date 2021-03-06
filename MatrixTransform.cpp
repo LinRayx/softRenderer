@@ -58,6 +58,19 @@ Matrix4f MatrixTransform::GetModelMatrix4x4(Vector3f trans, Vector3f rot, Vector
     return m;
 }
 
+Matrix3f MatrixTransform::GetRotationMatrix3x3(Vector3f rot)
+{
+    float thetax = rot.x() / 180.0f * PI;
+    float thetay = rot.y() / 180.0f * PI;
+    float thetaz = rot.z() / 180.0f * PI;
+//    std::cout << rot << std::endl;
+//    qDebug() << thetax << thetay << thetaz;
+    Matrix3f Rx = _getRotationMatrix3x3(Vector3f(1, 0, 0), thetax);
+    Matrix3f Ry = _getRotationMatrix3x3(Vector3f(0, 1, 0), thetay);
+    Matrix3f Rz = _getRotationMatrix3x3(Vector3f(0, 0, 1), thetaz);
+    return Rx * Ry * Rz;
+}
+
 Matrix4f MatrixTransform::GetViewMatrix4x4(Camera *camera)
 {
     Vector3f up = camera->GetUpDirection();
@@ -89,6 +102,20 @@ Matrix4f MatrixTransform::_getRotationMatrix4x4(Vector3f rot, float theta)
             (1.f-c)*Ax*Ay+s*Az, c+(1.f-c)*Ay*Ay, (1.f-c)*Ay*Az-s*Ax, 0.f,
             (1-c)*Ax*Az-s*Ay, (1-c)*Ay*Az+s*Ax, c+(1-c)*Az*Az, 0.f,
             0.f, 0.f, 0.f, 1.f;
+    return m;
+}
+
+Matrix3f MatrixTransform::_getRotationMatrix3x3(Vector3f rot, float theta)
+{
+
+    Matrix3f m;
+    float c = cosf(theta);
+    float s = sinf(theta);
+//    qDebug() << theta << c << s;
+    float Ax = rot.x(), Ay = rot.y(), Az = rot.z();
+    m << c+(1.f-c)*Ax*Ax, (1.f-c)*Ax*Ay-s*Az, (1.f-c)*Ax*Az+s*Ay,
+            (1.f-c)*Ax*Ay+s*Az, c+(1.f-c)*Ay*Ay, (1.f-c)*Ay*Az-s*Ax,
+            (1-c)*Ax*Az-s*Ay, (1-c)*Ay*Az+s*Ax, c+(1-c)*Az*Az;
     return m;
 }
 

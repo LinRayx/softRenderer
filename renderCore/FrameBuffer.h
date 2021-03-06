@@ -4,10 +4,10 @@
 #include <vector>
 class FrameBuffer {
 public:
-    FrameBuffer(const int &w = 1024, const int &h = 1024) {
+    FrameBuffer(const int &w = 500, const int &h = 500) {
         this->Width = w;
         this->Height = h;
-        colorBuffer.resize(Width*Height*4); //RGBA
+        colorBuffer.resize(static_cast<unsigned int>(Width*Height*4)); //RGBA
     }
     ~FrameBuffer() = default;
     void Resize(const int& w, const int& h);

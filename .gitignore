@@ -1,5 +1,5 @@
 *.qrc
-/eigen3
+# /eigen3
 *.includes
 *.pro
 *.user

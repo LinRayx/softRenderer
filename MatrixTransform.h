@@ -18,8 +18,11 @@ public:
 
     Matrix3f GetEularMatrix3x3(float pitch, float yaw, float roll);
     float Radians(float angle);
+
+    Matrix3f GetRotationMatrix3x3(Vector3f rot);
 private:
     Matrix4f _getRotationMatrix4x4(Vector3f rot, float theta);
+    Matrix3f _getRotationMatrix3x3(Vector3f rot, float theta);
 };
 
 #endif // TRANSFORM_H

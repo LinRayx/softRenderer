@@ -2,26 +2,23 @@
 #define __MODEL_H__
 
 #include <vector>
-#include "geometry.h"
+#include "../utils.h"
 class Model {
 private:
-	std::vector<Vec3f> verts_;
-	std::vector<Vec2f> texs_;
-    std::vector<Vec3f> normals_;
-
+    std::vector<std::vector<Vector3f> > triVertexs;
+    std::vector<std::vector<Vector2f> > triUvs;
+    std::vector<std::vector<Vector3f> > triNormals;
+    std::vector<Vector3f> vertexs;
+    std::vector<Vector2f> uvs;
+    std::vector<Vector3f> normals;
+    size_t Tris;
 public:
 	Model(const char *filename);
 	~Model();
-	int nverts();
-	int nfaces();
-    Vec3f vert(size_t i);
-    Vec2f tex(size_t i);
-    void setVert(size_t i, Vec3f);
-    std::vector<int> face(size_t idx);
-    std::vector<int> faceTex(size_t idx);
-    std::vector<std::vector<int> > faces_;
-    std::vector<std::vector<int> > faceTexs_;
-    std::vector<std::vector<int> > faceNormal_;
+    void getTriangleVertex(Vector3f& v, size_t i, size_t j);
+    void getTriangleUv(Vector2f& v, size_t i, size_t j);
+    void getTriangleNormal(Vector3f& v, size_t i, size_t j);
+    size_t size() {return Tris;}
 };
 
 #endif //__MODEL_H__
