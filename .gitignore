@@ -1,0 +1,9 @@
+*.qrc
+/eigen3
+*.includes
+*.pro
+*.user
+*.files
+*.creator
+*.config
+.DS_Store
