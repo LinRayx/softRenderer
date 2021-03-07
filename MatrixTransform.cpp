@@ -71,23 +71,27 @@ Matrix3f MatrixTransform::GetRotationMatrix3x3(Vector3f rot)
     return Rx * Ry * Rz;
 }
 
-Matrix4f MatrixTransform::GetViewMatrix4x4(Camera *camera)
-{
-    Vector3f up = camera->GetUpDirection();
-    Vector3f right = camera->GetRightDirection();
-    Vector3f look = camera->GetLookDirection();
-    Vector3f pos = camera->GetPosition();
 
-    Matrix4f m1, m2;
-    m1 << right.x(), right.y(), right.z(), 0,
-            up.x(), up.y(), up.z(), 0,
-            look.x(), look.y(), look.z(), 0,
-            0, 0, 0, 1;
-    m2 << 1, 0, 0, -pos.x(),
-            0, 1, 0, -pos.y(),
-            0, 0, 1, -pos.z(),
-            0, 0, 0, 1;
-    return m1 * m2;
+Matrix4f MatrixTransform::GetLookAtMatrix4x4(Vector3f &eye, Vector3f &center, Vector3f &Up)
+{
+    Vector3f z = (eye - center).normalized();
+    Vector3f x = z.cross(Up).normalized();
+    Vector3f y = x.cross(z).normalized();
+    Matrix4f m = Matrix4f::Identity();
+
+    Matrix4f t = Matrix4f::Identity();
+    for (int i = 0; i < 3; ++i) {
+        m(0, i) = x[i];
+        m(1, i) = y[i];
+        m(2, i) = z[i];
+        if (i == 2) {
+            m(0, i) *= -1;
+            m(1, i) *= -1;
+            m(2, i) *= -1;
+        }
+        t(i, 3) = -eye[i];
+    }
+    return m * t;
 }
 
 Matrix4f MatrixTransform::_getRotationMatrix4x4(Vector3f rot, float theta)

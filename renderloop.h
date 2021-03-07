@@ -14,23 +14,27 @@ class RenderLoop : public QObject
 public:
     explicit RenderLoop(int _width, int _height, QObject *parent = nullptr);
     ~RenderLoop() override;
-
-    void triangleByBc(FragmentData *fragmentData, float *zBuffer, int& tm);
-    Vector3f barycentric(FragmentData *fragmentData, Vector2i& p);
+    void stopRender();
     void keyPressEvent(float speed, char type);
     void mouseMoveEvent(float pitch, float yaw);
+private:
+    void triangleByBc(FragmentData *fragmentData, IShader *shader, int& tm);
+    Vector3f barycentric(FragmentData *fragmentData, Vector2i& p);
     bool faceCulling(const Vector3f& v1, const Vector3f& v2, const Vector3f& v3);
+    void GPUStage(IShader *shader, VertexData *vertexData);
+    void Pass(IShader *shader);
+
     Model *model;
     int width;
     int height;
     FrameBuffer frameBuffer;
-    void stopRender();
+    FrameBuffer shadowMap;
     bool stop;
     clock_t start, finish;
     double deltaFrameTime;
     MatrixTransform* transform;
     Camera* camera;
-    phoneShader* shader;
+    PhoneShader* phoneShader;
     Vector3f lightPos;
     TGAImage diffuseImg, normalImg;
 

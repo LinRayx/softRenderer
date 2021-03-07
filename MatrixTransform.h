@@ -13,9 +13,8 @@ public:
     Matrix4f GetScaleMatrix4x4(Vector3f scale);
     Matrix4f GetPersepectiveMatrix4x4(float fov, float ratio, float near, float far);
     Matrix4f GetModelMatrix4x4(Vector3f trans, Vector3f rot, Vector3f scale);
-    Matrix4f GetViewMatrix4x4(Camera *camera);
 
-
+    Matrix4f GetLookAtMatrix4x4(Vector3f& eye, Vector3f& center, Vector3f& Up);
     Matrix3f GetEularMatrix3x3(float pitch, float yaw, float roll);
     float Radians(float angle);
 
