@@ -4,7 +4,10 @@
 ![图片](https://github.com/LinRayx/softRenderer/blob/master/image/output1.png)
 # 计划
 
-[] shadowMap
-[] 立方体贴图
-[] 纹理过大：mipmap
-[] PBR
+* shadowMap
+
+* 立方体贴图
+
+* 纹理过大：mipmap
+
+* PBR
