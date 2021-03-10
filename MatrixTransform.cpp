@@ -46,7 +46,7 @@ Matrix4f MatrixTransform::GetPersepectiveMatrix4x4(float fov, float ratio, float
     float n = near;
     Matrix4f m;
     m << near / r, 0, 0, 0,
-            0, n / t, 0, 0,
+            0, near / t, 0, 0,
             0, 0, -(f+n)/(f-n), - 2*n*f/(f-n),
             0, 0, -1, 0;
     return m;
@@ -75,8 +75,8 @@ Matrix3f MatrixTransform::GetRotationMatrix3x3(Vector3f rot)
 Matrix4f MatrixTransform::GetLookAtMatrix4x4(Vector3f &eye, Vector3f &center, Vector3f &Up)
 {
     Vector3f z = (eye - center).normalized();
-    Vector3f x = z.cross(Up).normalized();
-    Vector3f y = x.cross(z).normalized();
+    Vector3f x = Up.cross(z).normalized();
+    Vector3f y = z.cross(x).normalized();
     Matrix4f m = Matrix4f::Identity();
 
     Matrix4f t = Matrix4f::Identity();
@@ -84,11 +84,6 @@ Matrix4f MatrixTransform::GetLookAtMatrix4x4(Vector3f &eye, Vector3f &center, Ve
         m(0, i) = x[i];
         m(1, i) = y[i];
         m(2, i) = z[i];
-        if (i == 2) {
-            m(0, i) *= -1;
-            m(1, i) *= -1;
-            m(2, i) *= -1;
-        }
         t(i, 3) = -eye[i];
     }
     return m * t;

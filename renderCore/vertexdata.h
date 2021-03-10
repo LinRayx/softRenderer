@@ -11,6 +11,7 @@ public:
     Vector3f view_pos;
     Vector2f uv;
     Matrix3f TBN;
+
 };
 
 #endif // VERTEXDATA_H

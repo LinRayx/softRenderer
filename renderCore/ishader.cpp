@@ -18,7 +18,7 @@ float *IShader::GetZBuffer() {
 void IShader::ClearZBuffer() {
     for (int i = 0; i < SCREEN_WIDTH; ++i) {
         for (int j = 0; j < SCREEN_HEIGHT; ++j) {
-            zBuffer[i+j*SCREEN_WIDTH] = std::numeric_limits<float>::min();
+            zBuffer[i+j*SCREEN_WIDTH] = 1;
         }
     }
 }
@@ -26,7 +26,8 @@ void IShader::ClearZBuffer() {
 bool IShader::SetZBuffer(int x, int y, float z) {
     if (abs(x + y* SCREEN_WIDTH) >= SCREEN_WIDTH*SCREEN_HEIGHT) return false;
     if (x < 0 || x >= SCREEN_WIDTH || y < 0 || y >= SCREEN_HEIGHT) return false;
-    if (zBuffer[x+y*SCREEN_WIDTH] < z) {
+//    std::cout << z <<" " << zBuffer[x+y*SCREEN_WIDTH] << std::endl;
+    if (zBuffer[x+y*SCREEN_WIDTH] > z) {
         zBuffer[x+y*SCREEN_WIDTH] = z;
         return true;
     }

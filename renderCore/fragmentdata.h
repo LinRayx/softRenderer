@@ -12,6 +12,7 @@ public:
     Vector3f normal;
     Vector2f uv;
     Vector3f lightColor;
+    std::vector<float>* shadowMap;
 };
 
 #endif // FRAGMENTDATA_H

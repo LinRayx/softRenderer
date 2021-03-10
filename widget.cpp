@@ -10,7 +10,7 @@ Widget::Widget(QWidget *parent) :
     pitch = yaw = 0;
     deltaFrameTime = 0;
     fps = 0;
-    loop = new RenderLoop(300, 300);
+    loop = new RenderLoop(600, 600);
 
     loopThread = new QThread(this);
     loop->moveToThread(loopThread);
@@ -41,7 +41,7 @@ Widget::~Widget()
 void Widget::paintEvent(QPaintEvent*) {
     if(canvas) {
         QPainter painter(this);
-        painter.drawImage(0, 0, *canvas);
+        painter.drawImage(0, 0, canvas->mirrored());
     }
 }
 

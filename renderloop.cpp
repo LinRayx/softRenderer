@@ -5,6 +5,9 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
     camera = new Camera;
     transform = new MatrixTransform;
     phoneShader = new PhoneShader(_width, _height);
+    shadowShader = new ShadowShader(_width, _height);
+    far = 50.f;
+    near = 1.f;
 }
 
 RenderLoop::~RenderLoop()
@@ -18,12 +21,14 @@ RenderLoop::~RenderLoop()
 
     if(phoneShader) delete phoneShader;
 
+    if (shadowShader) delete shadowShader;
+
 }
 
 void RenderLoop::loop()
 {
     frameBuffer.Resize(width, height);
-//    shadowMap.Resize(width, height);
+    shadowMap.resize(size_t(width * height));
     TGAImage diffuseImg, normalImg;
     std::string diffuseImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
     std::string normalImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_nm_tangent.tga";
@@ -37,14 +42,48 @@ void RenderLoop::loop()
     lightPos = Vector3f(5, 0, 5);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
-    while(!stop) {
+    shadowShader->far = -far;
+    shadowShader->near = -near;
+//    while(!stop) {
+        frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
         start = clock();
+//        shadowPass(shadowShader);
         Pass(phoneShader);
         finish = clock();
         deltaFrameTime = static_cast<double>(finish-start)/CLOCKS_PER_SEC;
         emit frameOut(frameBuffer.data(), deltaFrameTime, fps);
-    }
+//    }
     qDebug() << "render quit";
+}
+
+void RenderLoop::shadowPass(IShader* shader) {
+    shader->ClearZBuffer();
+    camera->SetPosition(lightPos);
+
+
+    Vector3f viewPos = lightPos;
+    Vector3f center = Vector3f(0, 0, 0);
+    Vector3f up = Vector3f(0, 1, 0);
+    float rot = 0;
+    Matrix4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, rot, 0));
+    Matrix4f view = transform->GetLookAtMatrix4x4(viewPos, center, up);
+    Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, -near, -far);
+
+    VertexData vertexData[3];
+    shader->setModelMat(rotate);
+    shader->setViewMat(view);
+    shader->setProjectionMat(projection);
+    for (size_t i = 0; i < model->size(); ++i) {
+        for (size_t j = 0; j < 3; ++j) {
+        // 初始化vertex shader数据
+            model->getTriangleVertex(vertexData[j].vertex_pos, i, j);
+//            model->getTriangleUv(vertexData[j].uv, i, j);
+//            model->getTriangleNormal(vertexData[j].normal, i, j);
+//            vertexData[j].light_pos = lightPos;
+//            vertexData[j].view_pos = viewPos;
+        }
+        GPUStage(shader, vertexData, true);
+    }
 }
 
 // 这部分代码还是太冗余了
@@ -57,11 +96,11 @@ void RenderLoop::Pass(IShader* shader)
     if (rot > 360) rot = 0;
 //        rot = rot + 300 * speed;
     rot = 0;
-    camera->SetPosition(Vector3f(0, 0, 3));
+    camera->SetPosition(Vector3f(2, 0, 2));
     Vector3f viewPos = camera->GetPosition();
     Matrix4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, rot, 0));
     Matrix4f view = transform->GetLookAtMatrix4x4(viewPos, center, up);
-    Matrix4f projection = transform->GetPersepectiveMatrix4x4(45.f/180.f*PI, 1.f*width/height, 0.1f, 100.0f);
+    Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
     Matrix3f model3x3 = transform->GetRotationMatrix3x3(Vector3f(0, rot, 0));
 
     VertexData vertexData[3];
@@ -101,27 +140,26 @@ void RenderLoop::Pass(IShader* shader)
             vertexData[j].TBN = TBN[j];
             // 开始vertex shader
         }
-        GPUStage(shader, vertexData);
+        GPUStage(shader, vertexData, false);
     }
 }
 
-void RenderLoop::GPUStage(IShader *shader, VertexData* vertexData)
+void RenderLoop::GPUStage(IShader *shader, VertexData* vertexData, bool shadow)
 {
-    int cnt = 0;
     FragmentData fragmentData[3];
     for (int i = 0; i < 3; ++i) {
         shader->vertexShader(vertexData[i], fragmentData[i]);
     }
 
     if (faceCulling(fragmentData[0].screen_pos, fragmentData[1].screen_pos, fragmentData[2].screen_pos)) return;
-    triangleByBc(fragmentData,shader, cnt);
+    triangleByBc(fragmentData,shader, shadow);
 }
 
 // 顶点坐标, 法线, 纹理都会在这个阶段被插值
-void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, int& tm)
+void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool shadow)
 {
-    int minx = width+100;
-    int miny = height+100;
+    int minx = width;
+    int miny = height;
     int maxx = 0;
     int maxy = 0;
     for (int i = 0; i < 3; ++i) {
@@ -129,11 +167,16 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, int& 
         miny = std::min(miny, static_cast<int>(fragmentData[i].screen_pos.y()));
         maxx = std::max(maxx, static_cast<int>(ceil(fragmentData[i].screen_pos.x())));
         maxy = std::max(maxy, static_cast<int>(ceil(fragmentData[i].screen_pos.y())));
+//        std::cout << fragmentData[i].screen_pos[0] << " " << fragmentData[i].screen_pos[1] << " " << fragmentData[i].screen_pos[2] << std::endl;
     }
+//    minx = std::max(minx, 0);miny = std::max(miny, 0);
+//    maxx = std::min(maxx, width); maxx = std::min(maxy, height);
     Vector2i p;
     Vector3f p_barycentric;
     Vec4c color2;
     int cnt = 0;
+
+//    std::cout << minx << " " << miny << " " << maxx << " " << maxy << std::endl;
     FragmentData pixelData;
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
@@ -147,7 +190,13 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, int& 
                 z += p_barycentric[i] * 1/fragmentData[i].screen_pos.z();
             }
             z = 1/z;
-            if (shader->SetZBuffer(x, y, z)) {
+
+            float n = near, f = far;
+            float dep = (2 * n * f) / ((f + n) - z * (f-n))/f;
+            pixelData.screen_pos[2] = dep;
+            pixelData.screen_pos[0] = x;
+            pixelData.screen_pos[1] = y;
+            if (shader->SetZBuffer(x, y, dep)) {
                 // 通过深度测试
                 Vector3f coef(z/fragmentData[0].screen_pos.z() * p_barycentric[0], z/fragmentData[1].screen_pos.z() * p_barycentric[1], z/fragmentData[2].screen_pos.z() * p_barycentric[2]);
                 pixelData.uv[0] = pixelData.uv[1] = 0.0f;
@@ -166,9 +215,16 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, int& 
                 }
 
                 pixelData.lightColor = Vector3f(1., 1., 1.);
+                if (!shadow) {
+                    pixelData.shadowMap = &shadowMap;
+                }
                 Vector4f color = shader->fragmentShader(pixelData);
-
-                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
+                if (shadow) {
+                    shadowMap[size_t(x + y * width)] = color[0];
+//                    std::cout << color[0] << " " << dep << std::endl;
+                }
+                else
+                    frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
             }
         }
     }
@@ -218,7 +274,7 @@ bool RenderLoop::faceCulling(const Vector3f &v1, const Vector3f &v2, const Vecto
     Vector3f tmp1 = v2-v1;
     Vector3f tmp2 = v3-v2;
     Vector3f norm = tmp1.cross(tmp2);
-    Vector3f view(0, 0, 1);
+    Vector3f view(0, 0, -1);
     return view.dot(norm) > 0;
 }
 
