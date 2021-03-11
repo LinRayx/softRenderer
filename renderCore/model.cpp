@@ -13,16 +13,16 @@ Model::Model(const char *filename) {
         return;
     }
     std::string line;
-    std::vector<Vector3f> ver;
-    std::vector<Vector2f> tex;
-    std::vector<Vector3f> norm;
+    std::vector<vec3> ver;
+    std::vector<vec2> tex;
+    std::vector<vec3> norm;
     while (!in.eof()) {
         std::getline(in, line);
         std::istringstream iss(line.c_str());
         char trash;
         if (!line.compare(0, 2, "v ")) {
             iss >> trash;
-            Vector3f v;
+            vec3 v;
             for (int i=0;i<3;i++) iss >> v[i];
             vertexs.push_back(v);
         } else if (!line.compare(0, 2, "f ")) {
@@ -43,13 +43,13 @@ Model::Model(const char *filename) {
 
         } else if (!line.compare(0, 3, "vt ")) {
             iss >> trash >> trash;
-            Vector2f v;
+            vec2 v;
             for (int i=0;i<2;i++) iss >> v[i];
             uvs.push_back(v);
             iss >> v[0];
         } else if(!line.compare(0, 3, "vn ")) {
             iss >> trash >> trash;
-            Vector3f v;
+            vec3 v;
             for (int i=0;i<3;i++) iss >> v[i];
             normals.push_back(v);
         }
@@ -62,18 +62,18 @@ Model::~Model() {
 }
 
 
-void Model::getTriangleUv(Vector2f &v, size_t i, size_t j)
+void Model::getTriangleUv(vec2 &v, size_t i, size_t j)
 {
 
     v = triUvs[i][j];
 }
 
-void Model::getTriangleNormal(Vector3f &v, size_t i, size_t j)
+void Model::getTriangleNormal(vec3 &v, size_t i, size_t j)
 {
     v = triNormals[i][j];
 }
 
-void Model::getTriangleVertex(Vector3f &v, size_t i, size_t j)
+void Model::getTriangleVertex(vec3 &v, size_t i, size_t j)
 {
     v = triVertexs[i][j];
 }

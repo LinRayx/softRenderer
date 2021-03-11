@@ -5,12 +5,12 @@ class VertexData {
 public:
     VertexData() {}
     ~VertexData() {}
-    Vector3f vertex_pos;
-    Vector3f normal;
-    Vector3f light_pos;
-    Vector3f view_pos;
-    Vector2f uv;
-    Matrix3f TBN;
+    vec3 vertex_pos;
+    vec3 normal;
+    vec3 light_pos;
+    vec3 view_pos;
+    vec2 uv;
+    mat3 TBN;
 
 };
 

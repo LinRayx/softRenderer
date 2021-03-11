@@ -3,12 +3,12 @@
 IShader::IShader(int& w, int& h)
 {
     this->setScreenSize(w, h);
-    zBuffer = new float[SCREEN_WIDTH * SCREEN_HEIGHT];
+
 }
 
 IShader::~IShader()
 {
-    if (zBuffer) delete[] zBuffer;
+
 }
 
 float *IShader::GetZBuffer() {
@@ -34,15 +34,14 @@ bool IShader::SetZBuffer(int x, int y, float z) {
     return false;
 }
 
-Vector3f IShader::texture(Vector2f uv, TGAImage &image)
+vec3 IShader::texture(vec2 uv, TGAImage &image)
 {
     int width = image.get_width();
     int height = image.get_height();
     float x = uv[0] * width; float y = uv[1] * height;
     //四个临近像素坐标x像素值
-    Vector3f f1,f2,f3,f4;
-    Vector3f color;
-    Vector3f f12, f34;
+    vec3 f1,f2,f3,f4;
+    vec3 f12, f34;
     float epsilon = 1e-4f;
     int x1,x2,y1,y2;
     //计算四个临近坐标
@@ -53,7 +52,7 @@ Vector3f IShader::texture(Vector2f uv, TGAImage &image)
     //不在图片的范围内
     if((x < 0) || (x > width - 1) || (y < 0) || (y > height - 1))
     {
-        return Vector3f(0, 0, 0);
+        return vec3(0.f);
     }
     else{
         if(fabs(x - width+1)<=epsilon) //如果计算点在右测边缘
@@ -62,13 +61,13 @@ Vector3f IShader::texture(Vector2f uv, TGAImage &image)
             if(fabs(y - height+1)<=epsilon)
             {
                 f1 = image.getV3(x1,y1);
-                return f1/255;
+                return f1/255.f;
             }else {
                 f1 = image.getV3(x1,y1);
                 f3 = image.getV3(x1,y2);
 
                 //图像右方的插值
-                return (f1 + (y-y1)*(f3-f1))/255;
+                return (f1 + (y-y1)*(f3-f1))/255.f;
             }
         }
         //如果插入点在图像的下方
@@ -77,7 +76,7 @@ Vector3f IShader::texture(Vector2f uv, TGAImage &image)
             f2 = image.getV3(x2,y1);
 
             //图像下方的插值
-            return  (f1 + (x-x1)*(f2-f1))/255;
+            return  (f1 + (x-x1)*(f2-f1))/255.f;
         }
         else {
             //得计算四个临近点像素值
@@ -93,7 +92,7 @@ Vector3f IShader::texture(Vector2f uv, TGAImage &image)
             f34 = f3 + (x-x1)*(f4-f3); //f(x,1)
 
             //最终插值
-            return (f12 + (y-y1)*(f34-f12))/255;
+            return (f12 + (y-y1)*(f34-f12))/255.f;
         }
     }
 }
@@ -103,17 +102,22 @@ void IShader::setScreenSize(int w, int h) {
     SCREEN_HEIGHT = h;
 }
 
-void IShader::setModelMat(Matrix4f &m)
+void IShader::setModelMat(mat4 &m)
 {
     model = m;
 }
 
-void IShader::setViewMat(Matrix4f &m)
+void IShader::setViewMat(mat4 &m)
 {
     view = m;
 }
 
-void IShader::setProjectionMat(Matrix4f &m)
+void IShader::setProjectionMat(mat4 &m)
 {
     projection = m;
+}
+
+void IShader::setZBuffer(float *zb)
+{
+    zBuffer = zb;
 }

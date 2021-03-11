@@ -255,12 +255,12 @@ TGAColor TGAImage::get(int x, int y) {
     return TGAColor (data+(x+y*width)*bytespp, bytespp);
 }
 
-Vector3f TGAImage::getV3(int x, int y) {
+vec3 TGAImage::getV3(int x, int y) {
     if (!data || x<0 || y<0 || x>=width || y>=height) {
-        return Vector3f(0, 0, 0);
+        return vec3(0, 0, 0);
     }
     TGAColor c(data+(x+y*width)*bytespp, bytespp);
-    Vector3f v = Vector3f(c.raw[0], c.raw[1], c.raw[2]);
+    vec3 v = vec3(c.raw[0], c.raw[1], c.raw[2]);
     return v;
 }
 

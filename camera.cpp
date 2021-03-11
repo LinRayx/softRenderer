@@ -11,12 +11,12 @@ Camera::~Camera()
 }
 
 
-Vector3f Camera::GetPosition()
+vec3 Camera::GetPosition()
 {
     return pos;
 }
 
-void Camera::SetPosition(Vector3f _pos)
+void Camera::SetPosition(vec3 _pos)
 {
     pos = _pos;
 }

@@ -83,7 +83,7 @@ public:
 	bool flip_vertically();
 	bool scale(int w, int h);
     TGAColor get(int x, int y);
-    Vector3f getV3(int x, int y);
+    vec3 getV3(int x, int y);
 	bool set(int x, int y, TGAColor c);
 	~TGAImage();
 	TGAImage & operator =(const TGAImage &img);

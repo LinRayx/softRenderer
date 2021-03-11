@@ -20,11 +20,14 @@ public:
     void mouseMoveEvent(float pitch, float yaw);
 private:
     void triangleByBc(FragmentData *fragmentData, IShader *shader, bool shadow = false);
-    Vector3f barycentric(FragmentData *fragmentData, Vector2i& p);
-    bool faceCulling(const Vector3f& v1, const Vector3f& v2, const Vector3f& v3);
+    void triangleByBcOrtho(FragmentData *fragmentData, IShader *shader);
+    void ClearZbuffer();
+    bool setZBuffer(int x, int y, float z);
+    vec3 barycentric(FragmentData *fragmentData, vec2& p);
+    bool faceCulling(const vec3& v1, const vec3& v2, const vec3& v3);
     void GPUStage(IShader *shader, VertexData *vertexData, bool shadow);
     void Pass(IShader *shader);
-
+    void renderFloor(IShader* shader, Model* model);
     Model *model;
     int width;
     int height;
@@ -37,10 +40,12 @@ private:
     Camera* camera;
     PhoneShader* phoneShader;
     ShadowShader* shadowShader;
-    Vector3f lightPos;
+    PhoneShader* floorShader;
+    vec3 lightPos;
     TGAImage diffuseImg, normalImg;
     float far, near;
-    void shadowPass(IShader *shader);
+    float* zbuffer;
+    void shadowPass(IShader *shader, Model *floorModel);
 signals:
     void frameOut(unsigned char *image, double deltaFrameTime, int fps);
 

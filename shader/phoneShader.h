@@ -10,18 +10,21 @@ public:
     PhoneShader(int &w, int &h);
     ~PhoneShader() override;
     void vertexShader(IN VertexData& vertexData, OUT FragmentData& fragmentData) override;
-    Vector4f fragmentShader(IN FragmentData& fragmentData) override;
+    vec4 fragmentShader(IN FragmentData& fragmentData) override;
 
     void setDiffuseImage(TGAImage& image);
     void setNormalImage(TGAImage& image);
-    void vecMulvec(Vector3f& vec1, Vector3f& vec2, Vector3f& res);
+
+//    void vecMulvec(vec3& vec1, vec3& vec2, vec2& res);
     float ShadowCalculation(FragmentData &fragmentData, float bias);
-    void setLightSpaceMat(Matrix4f mat);
+    void setLightSpaceMat(mat4 mat);
+    void setShadowMap(std::vector<float> shadowMap);
 private:
-    Vector2f uv;
+    vec2 uv;
     TGAImage diffuseImg;
     TGAImage normalImg;
-    Matrix4f lightSpaceMat;
+    mat4 lightSpaceMat;
+    std::vector<float> shadowMap;
 };
 
 #endif

@@ -88,7 +88,7 @@ void Widget::receiveFrame(unsigned char* image, double deltaFrameTime, int fps) 
 
 void Widget::fpsTimeOut()
 {
-    this->setWindowTitle(QString("SoftRenderer deltaFrame: %1 fps: %2").arg(this->deltaFrameTime));
+    this->setWindowTitle(QString("SoftRenderer deltaFrame: %1").arg(this->deltaFrameTime));
 }
 
 void Widget::keyPressEvent(QKeyEvent *e)

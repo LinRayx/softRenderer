@@ -8,20 +8,21 @@ class MatrixTransform
 public:
     MatrixTransform();
 
-    Matrix4f GetTranslationMatrix4x4(Vector3f coords);
-    Matrix4f GetRotationMatrix4x4(Vector3f rot);
-    Matrix4f GetScaleMatrix4x4(Vector3f scale);
-    Matrix4f GetPersepectiveMatrix4x4(float fov, float ratio, float near, float far);
-    Matrix4f GetModelMatrix4x4(Vector3f trans, Vector3f rot, Vector3f scale);
-    Matrix4f GetOrthoMatrix4x4(float width, float height, float near, float far);
-    Matrix4f GetLookAtMatrix4x4(Vector3f& eye, Vector3f& center, Vector3f& Up);
-    Matrix3f GetEularMatrix3x3(float pitch, float yaw, float roll);
+    mat4 GetTranslationMatrix4x4(vec3 coords);
+    mat4 GetRotationMatrix4x4(vec3 rot);
+    mat4 GetScaleMatrix4x4(vec3 scale);
+    mat4 GetPersepectiveMatrix4x4(float fov, float ratio, float near, float far);
+    mat4 GetModelMatrix4x4(vec3 trans, vec3 rot, vec3 scale);
+    mat4 GetOrthoMatrix4x4(float width, float height, float near, float far);
+    mat4 GetLookAtMatrix4x4(vec3& eye, vec3& center, vec3& Up);
+    mat4 GetEularMatrix3x3(float pitch, float yaw, float roll);
     float Radians(float angle);
 
-    Matrix3f GetRotationMatrix3x3(Vector3f rot);
+    mat3 GetRotationMatrix3x3(vec3 rot);
 private:
-    Matrix4f _getRotationMatrix4x4(Vector3f rot, float theta);
-    Matrix3f _getRotationMatrix3x3(Vector3f rot, float theta);
+    mat4 _getRotationMatrix4x4(vec3 rot, float theta);
+    mat3 _getRotationMatrix3x3(vec3 rot, float theta);
+    mat4 I;
 };
 
 #endif // TRANSFORM_H

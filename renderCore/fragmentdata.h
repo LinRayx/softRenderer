@@ -5,15 +5,15 @@ class FragmentData {
 public:
     FragmentData() {}
     ~FragmentData() {}
-    Vector3f lightDir;
-    Vector3f viewDir;
-    Vector3f screen_pos;
-    Vector3f world_pos;
-    Vector3f normal;
-    Vector2f uv;
-    Vector3f lightColor;
+    vec3 lightDir;
+    vec3 viewDir;
+    vec4 screen_pos;
+    vec3 world_pos;
+    vec3 normal;
+    vec2 uv;
+    vec3 lightColor;
     std::vector<float> shadowMap;
-    Vector3f lightSpacePos;
+    vec4 lightSpacePos;
 };
 
 #endif // FRAGMENTDATA_H

@@ -7,10 +7,10 @@ class Camera
 public:
     Camera();
     ~Camera();
-    Vector3f GetPosition();
-    void SetPosition(Vector3f);
+    vec3 GetPosition();
+    void SetPosition(vec3);
 private:
-    Vector3f pos;
+    vec3 pos;
 };
 
 #endif // CAMERA_H

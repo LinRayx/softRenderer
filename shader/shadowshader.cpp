@@ -12,17 +12,19 @@ ShadowShader::~ShadowShader()
 
 void ShadowShader::vertexShader(IN VertexData &vertexData, OUT FragmentData &fragmentData)
 {
-    Vector4f homo_pos = projection * view * model * Vector4f(vertexData.vertex_pos[0],vertexData.vertex_pos[1],vertexData.vertex_pos[2], 1.0);
-    fragmentData.screen_pos = Vector3f(homo_pos[0]/homo_pos[3], homo_pos[1]/homo_pos[3], homo_pos[2]/homo_pos[3]);
+    vec4 homo_pos = projection * view * model * vec4(vertexData.vertex_pos, 1.0);
+    fragmentData.screen_pos = vec4(vec3(homo_pos)/homo_pos.w, homo_pos.w);
     fragmentData.screen_pos[0] = (fragmentData.screen_pos[0] + 1.f)/2 * SCREEN_WIDTH;
     fragmentData.screen_pos[1] = (fragmentData.screen_pos[1] + 1.f)/2 * SCREEN_HEIGHT;
-//    std::cout << homo_pos[3] << " " << fragmentData.screen_pos[0] << " " << fragmentData.screen_pos[1] << " " << fragmentData.screen_pos[2] << std::endl;
+    fragmentData.screen_pos[2] = (fragmentData.screen_pos[2] + 1.f)/2;
+//    std::cout << homo_pos.w << " " << fragmentData.screen_pos[0] << " " << fragmentData.screen_pos[1] << " " << fragmentData.screen_pos[2] << std::endl;
 }
 
-Vector4f ShadowShader::fragmentShader(IN FragmentData &fragmentData)
+vec4 ShadowShader::fragmentShader(IN FragmentData &fragmentData)
 {
     float z = fragmentData.screen_pos[2];
 
 //    std::cout << "shadowPass: " << z << std::endl;
-    return Vector4f(z, z, z, 1);
+//    std::cout << z << std::endl;
+    return vec4(vec3(z), 1);
 }
