@@ -17,11 +17,17 @@ void PhoneShader::vertexShader(IN VertexData& vertexData, OUT FragmentData& frag
     Vector3f world_pos = Vector3f(homo_world_pos[0], homo_world_pos[1], homo_world_pos[2]);
     Vector4f proj_pos = projection * view * model * homo_pos;
     Vector3f screen_pos = Vector3f(proj_pos[0]/proj_pos[3], proj_pos[1]/proj_pos[3], proj_pos[2]/proj_pos[3]);
+    Vector4f lightSpacePos = lightSpaceMat * homo_pos;;
     Matrix3f TBN = vertexData.TBN;
-//    Vector4f dp = view * model * homo_pos;
-//    std::cout << dp[0] <<" " << dp[1] <<" " << dp[2] << " " << proj_pos[3] <<" " << screen_pos[2] << std::endl;
+
+    fragmentData.lightSpacePos = Vector3f(lightSpacePos[0]/lightSpacePos[3], lightSpacePos[1]/lightSpacePos[3], lightSpacePos[2]/lightSpacePos[3]);
     screen_pos[0] = (screen_pos[0] + 1.f)/2 * SCREEN_WIDTH;
     screen_pos[1] = (screen_pos[1] + 1.f)/2 * SCREEN_HEIGHT;
+    fragmentData.lightSpacePos[0] = (fragmentData.lightSpacePos[0] + 1.f)/2 * SCREEN_WIDTH;
+    fragmentData.lightSpacePos[1] = (fragmentData.lightSpacePos[1] + 1.f)/2 * SCREEN_HEIGHT;
+
+//    std::cout << fragmentData.lightSpacePos[0] << " " << fragmentData.lightSpacePos[1] << " " << fragmentData.lightSpacePos[2]  <<std::endl;
+//    std::cout << proj_pos[0] << " " << proj_pos[1] << " " << proj_pos[2]  << " " << proj_pos[3] <<std::endl;
     fragmentData.screen_pos = screen_pos;
     // 转换到切线空间
     fragmentData.lightDir = TBN * (vertexData.light_pos - world_pos);
@@ -39,7 +45,7 @@ void PhoneShader::vecMulvec(Vector3f& vec1, Vector3f& vec2, Vector3f& res) {
 Vector4f PhoneShader::fragmentShader(IN FragmentData &fragmentData)
 {
     // 在切线空间下计算
-    Vector3f ambient = Vector3f(0.15f, 0.15f, 0.15f);
+    Vector3f ambient = Vector3f(0.05f, 0.05f, 0.05f);
     Vector3f diffTex = texture(fragmentData.uv, diffuseImg);
 //    std::cout << diffTex << std::endl;
     Vector3f normal = texture(fragmentData.uv, normalImg);
@@ -58,18 +64,33 @@ Vector4f PhoneShader::fragmentShader(IN FragmentData &fragmentData)
     Vector3f specular = Vector3f(0.1f, 0.1f, 0.1f) * spec;
 
     // shadow
-
-
-    float shadow = 0;
-    if ((*fragmentData.shadowMap).size() > 0) {
-        float clostDepth = (*fragmentData.shadowMap)[fragmentData.screen_pos[0] + fragmentData.screen_pos[1] * SCREEN_WIDTH];
-        if (fragmentData.screen_pos[2] > clostDepth) {
-            shadow = 1;
-        }
-    }
+    float bias = std::max(0.5f * (1.0f - normal.dot(lightDir)), 0.1f);
+//    std::cout << bias << std::endl;
+    float shadow = ShadowCalculation(fragmentData, bias);
 
     Vector3f color = (diffuse + specular) * (1-shadow) + ambient;
     return Vector4f(color[0], color[1], color[2], 1.0);
+}
+
+float PhoneShader::ShadowCalculation(FragmentData &fragmentData, float bias) {
+    float x = fragmentData.lightSpacePos[0];
+    float y = fragmentData.lightSpacePos[1];
+
+    float shadow = 0;
+
+    if (fragmentData.shadowMap.size() > 0) {
+        float clostDepth = fragmentData.shadowMap[size_t(x+y * SCREEN_WIDTH)];
+//        std::cout << fragmentData.screen_pos[2] << " " << clostDepth << " " << x <<" " << y  << std::endl;
+        if (fragmentData.screen_pos[2]-bias > clostDepth) {
+            shadow = 1;
+        }
+    }
+    return shadow;
+}
+
+void PhoneShader::setLightSpaceMat(Matrix4f mat)
+{
+    lightSpaceMat = mat;
 }
 
 void PhoneShader::setDiffuseImage(TGAImage& image) {

@@ -16,12 +16,13 @@ void ShadowShader::vertexShader(IN VertexData &vertexData, OUT FragmentData &fra
     fragmentData.screen_pos = Vector3f(homo_pos[0]/homo_pos[3], homo_pos[1]/homo_pos[3], homo_pos[2]/homo_pos[3]);
     fragmentData.screen_pos[0] = (fragmentData.screen_pos[0] + 1.f)/2 * SCREEN_WIDTH;
     fragmentData.screen_pos[1] = (fragmentData.screen_pos[1] + 1.f)/2 * SCREEN_HEIGHT;
+//    std::cout << homo_pos[3] << " " << fragmentData.screen_pos[0] << " " << fragmentData.screen_pos[1] << " " << fragmentData.screen_pos[2] << std::endl;
 }
 
 Vector4f ShadowShader::fragmentShader(IN FragmentData &fragmentData)
 {
     float z = fragmentData.screen_pos[2];
 
-
+//    std::cout << "shadowPass: " << z << std::endl;
     return Vector4f(z, z, z, 1);
 }

@@ -15,10 +15,13 @@ public:
     void setDiffuseImage(TGAImage& image);
     void setNormalImage(TGAImage& image);
     void vecMulvec(Vector3f& vec1, Vector3f& vec2, Vector3f& res);
+    float ShadowCalculation(FragmentData &fragmentData, float bias);
+    void setLightSpaceMat(Matrix4f mat);
 private:
     Vector2f uv;
     TGAImage diffuseImg;
     TGAImage normalImg;
+    Matrix4f lightSpaceMat;
 };
 
 #endif

@@ -58,6 +58,16 @@ Matrix4f MatrixTransform::GetModelMatrix4x4(Vector3f trans, Vector3f rot, Vector
     return m;
 }
 
+Matrix4f MatrixTransform::GetOrthoMatrix4x4(float width, float height, float near, float far)
+{
+    Matrix4f m;
+    m << 2/width, 0, 0, 0,
+            0, 2/height, 0, 0,
+            0, 0, -2/(far-near), -(far+near)/(far-near),
+            0, 0, 0, 1;
+    return m;
+}
+
 Matrix3f MatrixTransform::GetRotationMatrix3x3(Vector3f rot)
 {
     float thetax = rot.x() / 180.0f * PI;

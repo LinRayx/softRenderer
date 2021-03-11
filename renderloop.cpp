@@ -7,7 +7,7 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
     phoneShader = new PhoneShader(_width, _height);
     shadowShader = new ShadowShader(_width, _height);
     far = 50.f;
-    near = 1.f;
+    near = 0.1f;
 }
 
 RenderLoop::~RenderLoop()
@@ -39,15 +39,15 @@ void RenderLoop::loop()
     std::string objPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "african_head.obj";
     model = new Model(objPath.c_str());
     int fps = 0;
-    lightPos = Vector3f(5, 0, 5);
+    lightPos = Vector3f(3, 3, 3);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
-    shadowShader->far = -far;
-    shadowShader->near = -near;
+    shadowShader->far = far;
+    shadowShader->near = near;
 //    while(!stop) {
         frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
         start = clock();
-//        shadowPass(shadowShader);
+        shadowPass(shadowShader);
         Pass(phoneShader);
         finish = clock();
         deltaFrameTime = static_cast<double>(finish-start)/CLOCKS_PER_SEC;
@@ -67,8 +67,9 @@ void RenderLoop::shadowPass(IShader* shader) {
     float rot = 0;
     Matrix4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, rot, 0));
     Matrix4f view = transform->GetLookAtMatrix4x4(viewPos, center, up);
-    Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, -near, -far);
-
+//    Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
+    Matrix4f projection = transform->GetOrthoMatrix4x4(width, height, near, far);
+    phoneShader->setLightSpaceMat(projection * view);
     VertexData vertexData[3];
     shader->setModelMat(rotate);
     shader->setViewMat(view);
@@ -96,12 +97,13 @@ void RenderLoop::Pass(IShader* shader)
     if (rot > 360) rot = 0;
 //        rot = rot + 300 * speed;
     rot = 0;
-    camera->SetPosition(Vector3f(2, 0, 2));
+    camera->SetPosition(Vector3f(0, 0, 2.5));
     Vector3f viewPos = camera->GetPosition();
     Matrix4f rotate = transform->GetRotationMatrix4x4(Vector3f(0, rot, 0));
     Matrix4f view = transform->GetLookAtMatrix4x4(viewPos, center, up);
     Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
     Matrix3f model3x3 = transform->GetRotationMatrix3x3(Vector3f(0, rot, 0));
+
 
     VertexData vertexData[3];
     shader->setModelMat(rotate);
@@ -180,6 +182,7 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
     FragmentData pixelData;
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
+
             p[0] = x; p[1] = y;
             p_barycentric = barycentric(fragmentData, p);
 
@@ -193,6 +196,7 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
 
             float n = near, f = far;
             float dep = (2 * n * f) / ((f + n) - z * (f-n))/f;
+//            std::cout << dep << std::endl;
             pixelData.screen_pos[2] = dep;
             pixelData.screen_pos[0] = x;
             pixelData.screen_pos[1] = y;
@@ -207,16 +211,21 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                 }
 
                 for (int k = 0; k < 3; ++k) {
+                    pixelData.lightSpacePos[k] = 0;
+                    pixelData.lightDir[k] = 0;
+                    pixelData.world_pos[k] = 0;
+                    pixelData.viewDir[k] = 0;
                     for (int i = 0; i < 3; ++i) {
                         pixelData.world_pos[k] += (fragmentData[i].world_pos[k] * coef[i]);
                         pixelData.lightDir[k] += (fragmentData[i].lightDir[k] * coef[i]);
                         pixelData.viewDir[k] += (fragmentData[i].viewDir[k] * coef[i]);
+                        pixelData.lightSpacePos[k] += (fragmentData[i].lightSpacePos[k] * coef[i]);
                     }
                 }
 
                 pixelData.lightColor = Vector3f(1., 1., 1.);
                 if (!shadow) {
-                    pixelData.shadowMap = &shadowMap;
+                    pixelData.shadowMap = shadowMap;
                 }
                 Vector4f color = shader->fragmentShader(pixelData);
                 if (shadow) {
