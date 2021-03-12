@@ -3,6 +3,7 @@
 MatrixTransform::MatrixTransform()
 {
     I = mat4(1.);
+
 }
 
 mat4 MatrixTransform::GetTranslationMatrix4x4(vec3 coords)

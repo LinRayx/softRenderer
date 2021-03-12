@@ -7,7 +7,13 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
     phoneShader = new PhoneShader(_width, _height);
     shadowShader = new ShadowShader(_width, _height);
     floorShader = new PhoneShader(_width, _height);
-    zbuffer = new float[width * height];
+    if (MSAA) {
+        MSAA_zbuffer = new float[width * height * 4 + 100];
+        colorBuffer.resize(width * height);
+    } else {
+        zbuffer = new float[width * height];
+    }
+
     far = 50.f;
     near = 0.1f;
 }
@@ -26,6 +32,8 @@ RenderLoop::~RenderLoop()
     if (shadowShader) delete shadowShader;
 
     if (zbuffer) delete[] zbuffer;
+
+    if (MSAA_zbuffer) delete[] MSAA_zbuffer;
 
 }
 
@@ -53,9 +61,9 @@ void RenderLoop::loop()
 
     Model* floorModel = new Model(floorObjPath.c_str());
 
-    camera->SetPosition(vec3(3, 0, 3));
+    camera->SetPosition(vec3(0, 0, 3));
     int fps = 0;
-    lightPos = vec3(3, 0, 3);
+    lightPos = vec3(0, 0, 3);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
 
@@ -66,13 +74,21 @@ void RenderLoop::loop()
     floorShader->setNormalImage(floorNormalImg);
 //    while(!stop) {
     ClearZbuffer();
-        frameBuffer.ClearColorBuffer(Vec4c(0, 0, 0, 0));
+        frameBuffer.ClearColorBuffer();
         start = clock();
 //        shadowPass(shadowShader, floorModel);
 //        phoneShader->setShadowMap(shadowMap);
         Pass(phoneShader);
-        renderFloor(floorShader, floorModel);
+//        renderFloor(floorShader, floorModel);
+        if (MSAA) {
+            for (int i = 0; i < colorBuffer.size(); ++i) {
+                vec4 color = colorBuffer[i];
+                frameBuffer.WritePoint(i, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), 255));
+
+            }
+        }
         finish = clock();
+
         deltaFrameTime = static_cast<double>(finish-start)/CLOCKS_PER_SEC;
         emit frameOut(frameBuffer.data(), deltaFrameTime, fps);
 //    }
@@ -122,7 +138,7 @@ void RenderLoop::Pass(IShader* shader)
     rot = 0;
 
     vec3 viewPos = camera->GetPosition();
-    mat4 modelMat = transform->GetRotationMatrix4x4(vec3(0, rot, 0));
+    mat4 modelMat = transform->GetRotationMatrix4x4(vec3(0, 0, 0));
     mat4 view = transform->GetLookAtMatrix4x4(viewPos, center, up);
     mat4 projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
 
@@ -253,19 +269,83 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
 //    maxx = std::min(maxx, width); maxx = std::min(maxy, height);
     vec2 p;
     vec3 p_barycentric;
-
-    int cnt = 0;
-
-//    std::cout << minx << " " << miny << " " << maxx << " " << maxy << std::endl;
     FragmentData pixelData;
-    for (int x = minx; x <= maxx; x++) {
-        for (int y = miny; y <= maxy; y++) {
 
+    if (MSAA) {
+        float dx[4] = {0.25, 0.25, 0.75, 0.75};
+        float dy[4] = {0.25, 0.75, 0.25, 0.75};
+        for (int x = minx; x <= maxx; x++) {
+            for (int y = miny; y <= maxy; y++) {
+                int msaa = 0;
+                for (size_t k = 0; k < 4; ++k) {
+                    p[0] = x + dx[k];
+                    p[1] = y + dy[k];
+                    p_barycentric = barycentric(fragmentData, p);
+//                    Util::printVec3(p_barycentric);
+                    float EPS = -0.f;
+                    if (p_barycentric.x < EPS || p_barycentric.y < EPS || p_barycentric.z < EPS) continue;
+                    if (p_barycentric.x > 1 || p_barycentric.y > 1 || p_barycentric.z > 1) continue;
+                    float w = 0;
+                    for (int i = 0; i < 3; ++i) {
+                        w += p_barycentric[i] * 1/fragmentData[i].screen_pos.w;
+                    }
+                    w = 1/w;
+                    float n = near, f = far;
+                    float dep = (w - n) / (far - n);
+                    if (MSAA_zbuffer[(x + y *width)*4 + k] > dep) {
+                        MSAA_zbuffer[(x + y *width)*4 + k] = dep;
+                        msaa++;
+                    }
+                }
+                if (msaa == 0) continue;
+                p[0] = x;
+                p[1] = y;
+                p_barycentric = barycentric(fragmentData, p);
+                float w = 0;
+                for (int i = 0; i < 3; ++i) {
+                    w += p_barycentric[i] * 1/fragmentData[i].screen_pos.w;
+                }
+                w = 1/w;
+                vec3 coef(w/fragmentData[0].screen_pos.w * p_barycentric[0], w/fragmentData[1].screen_pos.w * p_barycentric[1], w/fragmentData[2].screen_pos.w * p_barycentric[2]);
+                pixelData.uv[0] = pixelData.uv[1] = 0.0f;
+                for (int k = 0; k < 2; ++k) {
+                    for (int i = 0; i < 3; ++i) {
+                        pixelData.uv[k] += (fragmentData[i].uv[k] * coef[i]);
+                    }
+                }
+
+                for (int k = 0; k < 3; ++k) {
+                    pixelData.lightDir[k] = 0;
+                    pixelData.world_pos[k] = 0;
+                    pixelData.viewDir[k] = 0;
+                    pixelData.lightSpacePos[k] = 0;
+                    for (int i = 0; i < 3; ++i) {
+                        pixelData.world_pos[k] += (fragmentData[i].world_pos[k] * coef[i]);
+                        pixelData.lightDir[k] += (fragmentData[i].lightDir[k] * coef[i]);
+                        pixelData.viewDir[k] += (fragmentData[i].viewDir[k] * coef[i]);
+                        pixelData.lightSpacePos[k] += (fragmentData[i].lightSpacePos[k] * coef[i]);
+                    }
+                }
+                pixelData.lightColor = vec3(1.);
+                vec4 pixel_color = shader->fragmentShader(pixelData);
+//                vec4 color = vec4(0);
+//                for (int i = 0; i < 4; ++i) {
+//                    color += buffer[i];
+//                }
+//                color /= 4;
+                vec4 color = 1.f * msaa / 4 * pixel_color;
+                colorBuffer[x + y * width] += color;
+//                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), 255));
+            }
+        }
+    }
+    else {
+    for (int x = minx; x <= maxx; x++) {
+        for (int y = miny; y <= maxy; y++) {;
             p[0] = x; p[1] = y;
             p_barycentric = barycentric(fragmentData, p);
 
             if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
-            cnt++;
             float w = 0;
 
             for (int i = 0; i < 3; ++i) {
@@ -273,8 +353,9 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
             }
             w = 1/w;
 
-            float dep = (w-near)/(far-near);
-//            std::cout << dep << " " << w << std::endl;
+            float n = near, f = far;
+            float dep = (2 * n * f) / ((f + n) - w * (f-n))/f;
+
             if (setZBuffer(x, y, dep)) {
                 // 通过深度测试
                 vec3 coef(w/fragmentData[0].screen_pos.w * p_barycentric[0], w/fragmentData[1].screen_pos.w * p_barycentric[1], w/fragmentData[2].screen_pos.w * p_barycentric[2]);
@@ -299,12 +380,12 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                 }
 
                 pixelData.lightColor = vec3(1.);
-
                 vec4 color = shader->fragmentShader(pixelData);
-                Util::printVec4(color);
+//                Util::printVec4(color);
                 frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
             }
         }
+    }
     }
 }
 
@@ -353,9 +434,13 @@ void RenderLoop::triangleByBcOrtho(FragmentData *fragmentData, IShader *shader)
 
 void RenderLoop::ClearZbuffer()
 {
-    for (int i = 0; i < width; ++i) {
-        for (int j = 0; j < height; ++j) {
-            zbuffer[i + j * width] = 1;
+    if (MSAA) {
+        for (int i = 0; i < width * height * 4 + 100; ++i) {
+            MSAA_zbuffer[i] = 100.f;
+        }
+    } else {
+        for (int i = 0; i < width * height; ++i) {
+            zbuffer[i] = 1.f;
         }
     }
 }
@@ -374,12 +459,16 @@ bool RenderLoop::setZBuffer(int x, int y, float z)
 
 vec3 RenderLoop::barycentric(FragmentData *fragmentData, vec2& p)
 {
-
-    vec3 u = cross(vec3(fragmentData[2].screen_pos.x-fragmentData[0].screen_pos.x, fragmentData[1].screen_pos.x-fragmentData[0].screen_pos.x, fragmentData[0].screen_pos.x-p.x),(
-        vec3(fragmentData[2].screen_pos.y-fragmentData[0].screen_pos.y, fragmentData[1].screen_pos.y-fragmentData[0].screen_pos.y, fragmentData[0].screen_pos.y-p.y)));
-    if (std::abs(u.z) < 1)
-        return vec3(-1, 1, 1);
-    return vec3(1-(u.x+u.y)/u.z, u.y/u.z, u.x/u.z);
+    vec2 p1 = fragmentData[0].screen_pos;
+    vec2 p2 = fragmentData[1].screen_pos;
+    vec2 p3 = fragmentData[2].screen_pos;
+    vec2 C = p-p3;
+    vec2 A = p1-p3;
+    vec2 B = p2-p3;
+    float w1 = (C.x * B.y - C.y * B.x) / (A.x * B.y - A.y * B.x);
+    float w2 = (C.x * A.y - C.y * A.x) / (B.x * A.y - B.y * A.x);
+    float w3 = 1 - w1 - w2;
+    return vec3(w1, w2, w3);
 }
 
 

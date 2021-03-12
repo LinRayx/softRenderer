@@ -3,15 +3,15 @@
 void FrameBuffer::Resize(const int& w, const int& h) {
     Width = w;
     Height = h;
-    colorBuffer.resize(static_cast<unsigned int>(w*h*4));
+    colorBuffer.resize(static_cast<unsigned int>(w*h*4));    
 }
 
-void FrameBuffer::ClearColorBuffer(const Vec4c& color) {
+void FrameBuffer::ClearColorBuffer() {
     for (auto it = colorBuffer.begin(); it != colorBuffer.end();) {
-        *it = color.r;
-        *(++it) = color.g;
-        *(++it) = color.b;
-        *(++it) = color.a;
+        *it = 0;
+        *(++it) = 0;
+        *(++it) = 0;
+        *(++it) = 255;
         ++it;
     }
 }
@@ -27,6 +27,15 @@ void FrameBuffer::WritePoint(const int &x, const int &y, const Vec4c& color) {
     *(p + xy*4 + 2) = color.b;
     *(p + xy*4 + 3) = color.a;
 
+}
+
+void FrameBuffer::WritePoint(const int &i, const Vec4c &color)
+{
+    unsigned char * p = colorBuffer.data();
+    *(p + i*4) = color.r;
+    *(p + i*4 + 1) = color.g;
+    *(p + i*4 + 2) = color.b;
+    *(p + i*4 + 3) = color.a;
 }
 
 unsigned char* FrameBuffer::data() {

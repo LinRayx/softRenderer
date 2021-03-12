@@ -16,11 +16,11 @@ void PhoneShader::vertexShader(IN VertexData& vertexData, OUT FragmentData& frag
     vec3 world_pos = vec3(model * homo_pos);
     vec4 proj_pos = projection * view * model * homo_pos;
     vec4 screen_pos = vec4(vec3(proj_pos)/proj_pos.w, proj_pos.w);
+
     screen_pos[0] = (screen_pos[0] + 1.f)/2 * SCREEN_WIDTH;
     screen_pos[1] = (screen_pos[1] + 1.f)/2 * SCREEN_HEIGHT;
     screen_pos[2] = (screen_pos[2] + 1.f)/2;
     fragmentData.screen_pos = screen_pos;
-
 
 
     vec4 lightSpacePos = lightSpaceMat * model * homo_pos;

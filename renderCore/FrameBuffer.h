@@ -11,8 +11,9 @@ public:
     }
     ~FrameBuffer() = default;
     void Resize(const int& w, const int& h);
-    void ClearColorBuffer(const Vec4c& color);
+    void ClearColorBuffer();
     void WritePoint(const int &x, const int &y, const Vec4c& color);
+    void WritePoint(const int &i, const Vec4c& color);
     unsigned char* data();
     void print();
 
