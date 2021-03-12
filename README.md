@@ -19,7 +19,7 @@
 # 阶段总结
 
 [初期总结](https://zhuanlan.zhihu.com/p/355347725)
-[MSAA采坑记录] (https://zhuanlan.zhihu.com/p/356752147)
+[MSAA采坑记录](https://zhuanlan.zhihu.com/p/356752147)
 
 # 目前进度
 
