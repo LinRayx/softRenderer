@@ -53,7 +53,7 @@ void RenderLoop::loop()
 
     Model* floorModel = new Model(floorObjPath.c_str());
 
-    camera->SetPosition(vec3(-3, 3, 3));
+    camera->SetPosition(vec3(3, 0, 3));
     int fps = 0;
     lightPos = vec3(3, 0, 3);
     phoneShader->setDiffuseImage(diffuseImg);

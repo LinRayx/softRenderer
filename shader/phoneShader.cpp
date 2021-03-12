@@ -43,7 +43,7 @@ vec4 PhoneShader::fragmentShader(IN FragmentData &fragmentData)
 {
 
     // 在切线空间下计算
-    vec3 ambient = vec3(0.15f, 0.15f, 0.15f);
+    vec3 ambient = vec3(0.1f, 0.1f, 0.1f);
     vec3 diffTex = texture(fragmentData.uv, diffuseImg);
     vec3 normal = texture(fragmentData.uv, normalImg);
     std::swap(normal[0], normal[2]);
