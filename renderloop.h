@@ -23,12 +23,11 @@ private:
     void triangleByBcOrtho(FragmentData *fragmentData, IShader *shader);
     void ClearZbuffer();
     bool setZBuffer(int x, int y, float z);
-    vec3 barycentric(FragmentData *fragmentData, vec2& p);
     bool faceCulling(const vec3& v1, const vec3& v2, const vec3& v3);
     void GPUStage(IShader *shader, VertexData *vertexData, bool shadow);
     void Pass(IShader *shader);
     void renderFloor(IShader* shader, Model* model);
-    Model *model;
+    Model *model,  *floorModel;
     int width;
     int height;
     FrameBuffer frameBuffer;
@@ -48,7 +47,9 @@ private:
     void shadowPass(IShader *shader, Model *floorModel);
     bool MSAA = false;
     float* MSAA_zbuffer;
+
     std::vector<vec4>colorBuffer;
+    vec3 barycentric(const vec2 &pos1, const vec2 &pos2, const vec2 &pos3, const vec2 &p);
 signals:
     void frameOut(unsigned char *image, double deltaFrameTime, int fps);
 

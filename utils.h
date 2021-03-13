@@ -6,12 +6,13 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <iomanip>
 using namespace glm;
 //#define APP_PATH std::string("D:\\softRenderer\\")
 //#define OS_FILE_INTERVEL std::string("\\")
 #define APP_PATH std::string("/Users/kyrie/softRenderer/")
 #define OS_FILE_INTERVEL std::string("/")
-#define DEBUG true
+#define DEBUG false
 const float PI =  3.1415927f;
 
 class Util {

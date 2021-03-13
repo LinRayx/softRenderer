@@ -6,7 +6,7 @@
 #ifndef ISHADER_H
 #define ISHADER_H
 #define OUT
-#define IN
+#define IN const
 class IShader
 {
 public:
@@ -23,6 +23,7 @@ public:
     void setViewMat(mat4&);
     void setProjectionMat(mat4&);
     void setZBuffer(float* zb);
+    vec3 textureShadow(vec2 uv, const std::vector<float> &shadowMap, int width, int height);
 protected:
     mat4 model;
     mat4 view;

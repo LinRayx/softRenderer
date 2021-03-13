@@ -31,9 +31,13 @@ RenderLoop::~RenderLoop()
 
     if (shadowShader) delete shadowShader;
 
+    if (floorShader) delete floorShader;
+
     if (zbuffer) delete[] zbuffer;
 
     if (MSAA_zbuffer) delete[] MSAA_zbuffer;
+
+    if (floorModel) delete[] floorModel;
 
 }
 
@@ -41,6 +45,9 @@ void RenderLoop::loop()
 {
     frameBuffer.Resize(width, height);
     shadowMap.resize(size_t(width * height));
+    for (size_t i = 0; i < shadowMap.size(); ++i) {
+        shadowMap[i] = 1.f;
+    }
     TGAImage diffuseImg, normalImg, floorDiffuseImg, floorNormalImg;
     std::string diffuseImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_diffuse.tga";
     std::string normalImgPath = APP_PATH + "image" + OS_FILE_INTERVEL + "african_head_nm_tangent.tga";
@@ -59,16 +66,14 @@ void RenderLoop::loop()
     floorNormalImg.flip_vertically();
     std::string floorObjPath = APP_PATH + "obj" + OS_FILE_INTERVEL + "floor.obj";
 
-    Model* floorModel = new Model(floorObjPath.c_str());
+    floorModel = new Model(floorObjPath.c_str());
 
-    camera->SetPosition(vec3(0, 0, 3));
+    camera->SetPosition(vec3(0, 5, 3));
     int fps = 0;
-    lightPos = vec3(0, 0, 3);
+    lightPos = vec3(3, 5, 3);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
 
-    shadowShader->far = far;
-    shadowShader->near = near;
 
     floorShader->setDiffuseImage(floorDiffuseImg);
     floorShader->setNormalImage(floorNormalImg);
@@ -76,10 +81,11 @@ void RenderLoop::loop()
     ClearZbuffer();
         frameBuffer.ClearColorBuffer();
         start = clock();
-//        shadowPass(shadowShader, floorModel);
-//        phoneShader->setShadowMap(shadowMap);
+        shadowPass(shadowShader, floorModel);
+        phoneShader->setShadowMap(shadowMap);
+        floorShader->setShadowMap(shadowMap);
         Pass(phoneShader);
-//        renderFloor(floorShader, floorModel);
+        renderFloor(floorShader, floorModel);
         if (MSAA) {
             for (int i = 0; i < colorBuffer.size(); ++i) {
                 vec4 color = colorBuffer[i];
@@ -102,9 +108,11 @@ void RenderLoop::shadowPass(IShader* shader, Model* floorModel) {
     float rot = 0;
     mat4 rotate = transform->GetRotationMatrix4x4(vec3(0, rot, 0));
     mat4 view = transform->GetLookAtMatrix4x4(viewPos, center, up);
-//    Matrix4f projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
+    Util::printMat4(view);
     mat4 projection = transform->GetOrthoMatrix4x4(10.f, 10.f, 1.f, 10.f);
+//    Util::printMat4(projection);
     phoneShader->setLightSpaceMat(projection * view);
+    floorShader->setLightSpaceMat(projection * view);
     VertexData vertexData[3];
     shader->setModelMat(rotate);
     shader->setViewMat(view);
@@ -193,7 +201,7 @@ void RenderLoop::renderFloor(IShader *shader, Model *model)
     rot = 0;
     vec3 viewPos = camera->GetPosition();
 //    mat4 modelMat = transform->GetTranslationMatrix4x4(vec3(0, 0, 0));
-    mat4 modelMat = transform->GetModelMatrix4x4(vec3(0, 0, 0), vec3(0, 0, 0), vec3(2, 2, 2));
+    mat4 modelMat = transform->GetModelMatrix4x4(vec3(0, 1, 0), vec3(0, 0, 0), vec3(2, 2, 2));
     mat4 view = transform->GetLookAtMatrix4x4(viewPos, center, up);
     mat4 projection = transform->GetPersepectiveMatrix4x4(transform->Radians(45), 1.f*width/height, near, far);
 
@@ -263,7 +271,6 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
         miny = std::min(miny, static_cast<int>(fragmentData[i].screen_pos.y));
         maxx = std::max(maxx, static_cast<int>(ceil(fragmentData[i].screen_pos.x)));
         maxy = std::max(maxy, static_cast<int>(ceil(fragmentData[i].screen_pos.y)));
-//        std::cout << fragmentData[i].screen_pos[0] << " " << fragmentData[i].screen_pos[1] << " " << fragmentData[i].screen_pos[2] << std::endl;
     }
 //    minx = std::max(minx, 0);miny = std::max(miny, 0);
 //    maxx = std::min(maxx, width); maxx = std::min(maxy, height);
@@ -280,7 +287,7 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                 for (size_t k = 0; k < 4; ++k) {
                     p[0] = x + dx[k];
                     p[1] = y + dy[k];
-                    p_barycentric = barycentric(fragmentData, p);
+                    p_barycentric = barycentric(fragmentData[0].screen_pos, fragmentData[1].screen_pos, fragmentData[2].screen_pos, p);
 //                    Util::printVec3(p_barycentric);
                     float EPS = -0.f;
                     if (p_barycentric.x < EPS || p_barycentric.y < EPS || p_barycentric.z < EPS) continue;
@@ -300,7 +307,7 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                 if (msaa == 0) continue;
                 p[0] = x;
                 p[1] = y;
-                p_barycentric = barycentric(fragmentData, p);
+                p_barycentric = barycentric(fragmentData[0].screen_pos, fragmentData[1].screen_pos, fragmentData[2].screen_pos, p);
                 float w = 0;
                 for (int i = 0; i < 3; ++i) {
                     w += p_barycentric[i] * 1/fragmentData[i].screen_pos.w;
@@ -340,52 +347,52 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
         }
     }
     else {
-    for (int x = minx; x <= maxx; x++) {
-        for (int y = miny; y <= maxy; y++) {;
-            p[0] = x; p[1] = y;
-            p_barycentric = barycentric(fragmentData, p);
+        for (int x = minx; x <= maxx; x++) {
+            for (int y = miny; y <= maxy; y++) {;
+                p[0] = x; p[1] = y;
+                p_barycentric = barycentric(fragmentData[0].screen_pos, fragmentData[1].screen_pos, fragmentData[2].screen_pos, p);
 
-            if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
-            float w = 0;
+                if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
+                float w = 0;
 
-            for (int i = 0; i < 3; ++i) {
-                w += p_barycentric[i] * 1/fragmentData[i].screen_pos.w;
-            }
-            w = 1/w;
-
-            float n = near, f = far;
-            float dep = (2 * n * f) / ((f + n) - w * (f-n))/f;
-
-            if (setZBuffer(x, y, dep)) {
-                // 通过深度测试
-                vec3 coef(w/fragmentData[0].screen_pos.w * p_barycentric[0], w/fragmentData[1].screen_pos.w * p_barycentric[1], w/fragmentData[2].screen_pos.w * p_barycentric[2]);
-                pixelData.uv[0] = pixelData.uv[1] = 0.0f;
-                for (int k = 0; k < 2; ++k) {
-                    for (int i = 0; i < 3; ++i) {
-                        pixelData.uv[k] += (fragmentData[i].uv[k] * coef[i]);
-                    }
+                for (int i = 0; i < 3; ++i) {
+                    w += p_barycentric[i] * 1/fragmentData[i].screen_pos.w;
                 }
+                w = 1/w;
 
-                for (int k = 0; k < 3; ++k) {
-                    pixelData.lightDir[k] = 0;
-                    pixelData.world_pos[k] = 0;
-                    pixelData.viewDir[k] = 0;
-                    pixelData.lightSpacePos[k] = 0;
-                    for (int i = 0; i < 3; ++i) {
-                        pixelData.world_pos[k] += (fragmentData[i].world_pos[k] * coef[i]);
-                        pixelData.lightDir[k] += (fragmentData[i].lightDir[k] * coef[i]);
-                        pixelData.viewDir[k] += (fragmentData[i].viewDir[k] * coef[i]);
-                        pixelData.lightSpacePos[k] += (fragmentData[i].lightSpacePos[k] * coef[i]);
+                float n = near, f = far;
+                float dep = (2 * n * f) / ((f + n) - w * (f-n))/f;
+
+                if (setZBuffer(x, y, dep)) {
+                    // 通过深度测试
+                    vec3 coef(w/fragmentData[0].screen_pos.w * p_barycentric[0], w/fragmentData[1].screen_pos.w * p_barycentric[1], w/fragmentData[2].screen_pos.w * p_barycentric[2]);
+                    pixelData.uv[0] = pixelData.uv[1] = 0.0f;
+                    for (int k = 0; k < 2; ++k) {
+                        for (int i = 0; i < 3; ++i) {
+                            pixelData.uv[k] += (fragmentData[i].uv[k] * coef[i]);
+                        }
                     }
-                }
 
-                pixelData.lightColor = vec3(1.);
-                vec4 color = shader->fragmentShader(pixelData);
-//                Util::printVec4(color);
-                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
+                    for (int k = 0; k < 3; ++k) {
+                        pixelData.lightDir[k] = 0;
+                        pixelData.world_pos[k] = 0;
+                        pixelData.viewDir[k] = 0;
+                        pixelData.lightSpacePos[k] = 0;
+                        for (int i = 0; i < 3; ++i) {
+                            pixelData.world_pos[k] += (fragmentData[i].world_pos[k] * coef[i]);
+                            pixelData.lightDir[k] += (fragmentData[i].lightDir[k] * coef[i]);
+                            pixelData.viewDir[k] += (fragmentData[i].viewDir[k] * coef[i]);
+                            pixelData.lightSpacePos[k] += (fragmentData[i].lightSpacePos[k] * coef[i]);
+                        }
+                    }
+
+
+                    pixelData.lightColor = vec3(1.);
+                    vec4 color = shader->fragmentShader(pixelData);
+                    frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
+                }
             }
         }
-    }
     }
 }
 
@@ -400,19 +407,15 @@ void RenderLoop::triangleByBcOrtho(FragmentData *fragmentData, IShader *shader)
         miny = std::min(miny, static_cast<int>(fragmentData[i].screen_pos.y));
         maxx = std::max(maxx, static_cast<int>(ceil(fragmentData[i].screen_pos.x)));
         maxy = std::max(maxy, static_cast<int>(ceil(fragmentData[i].screen_pos.y)));
-//        std::cout << fragmentData[i].screen_pos[0] << " " << fragmentData[i].screen_pos[1] << " " << fragmentData[i].screen_pos[2] << std::endl;
     }
-//    minx = std::max(minx, 0);miny = std::max(miny, 0);
-//    maxx = std::min(maxx, width); maxx = std::min(maxy, height);
     vec2 p;
     vec3 p_barycentric;
-//    std::cout << minx << " " << miny << " " << maxx << " " << maxy << std::endl;
 
     for (int x = minx; x <= maxx; x++) {
         for (int y = miny; y <= maxy; y++) {
             FragmentData pixelData;
             p[0] = x; p[1] = y;
-            p_barycentric = barycentric(fragmentData, p);
+            p_barycentric = barycentric(fragmentData[0].screen_pos, fragmentData[1].screen_pos, fragmentData[2].screen_pos, p);
 
             if (p_barycentric.x < 0 || p_barycentric.y < 0 || p_barycentric.z < 0) continue;
             float z = 0;
@@ -424,7 +427,6 @@ void RenderLoop::triangleByBcOrtho(FragmentData *fragmentData, IShader *shader)
                 // 通过深度测试
                 pixelData.screen_pos[2] = z;
                 vec4 color = shader->fragmentShader(pixelData);
-                std::cout << x + y * width << " " << color[0] << " " << width << std::endl;
                 shadowMap[size_t(x + y * width)] = color[0];
 //                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), static_cast<unsigned char>(color[3]*255)));
             }
@@ -457,11 +459,11 @@ bool RenderLoop::setZBuffer(int x, int y, float z)
     return false;
 }
 
-vec3 RenderLoop::barycentric(FragmentData *fragmentData, vec2& p)
+vec3 RenderLoop::barycentric(const vec2& pos1, const vec2& pos2, const vec2& pos3,const vec2& p)
 {
-    vec2 p1 = fragmentData[0].screen_pos;
-    vec2 p2 = fragmentData[1].screen_pos;
-    vec2 p3 = fragmentData[2].screen_pos;
+    vec2 p1 = pos1;
+    vec2 p2 = pos2;
+    vec2 p3 = pos3;
     vec2 C = p-p3;
     vec2 A = p1-p3;
     vec2 B = p2-p3;

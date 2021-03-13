@@ -16,7 +16,7 @@ public:
     void setNormalImage(TGAImage& image);
 
 //    void vecMulvec(vec3& vec1, vec3& vec2, vec2& res);
-    float ShadowCalculation(FragmentData &fragmentData, float bias);
+    float ShadowCalculation(IN FragmentData &fragmentData, float bias);
     void setLightSpaceMat(mat4 mat);
     void setShadowMap(std::vector<float> shadowMap);
 private:

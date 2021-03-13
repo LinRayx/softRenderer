@@ -12,6 +12,10 @@ void FrameBuffer::ClearColorBuffer() {
         *(++it) = 0;
         *(++it) = 0;
         *(++it) = 255;
+//        *it = 255;
+//        *(++it) = 255;
+//        *(++it) = 255;
+//        *(++it) = 255;
         ++it;
     }
 }
