@@ -14,6 +14,7 @@ public:
     void ClearColorBuffer();
     void WritePoint(const int &x, const int &y, const Vec4c& color);
     void WritePoint(const int &i, const Vec4c& color);
+    void DoMsaa(const int i, const float coef);
     unsigned char* data();
     void print();
 

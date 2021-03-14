@@ -25,6 +25,7 @@ private:
     bool setZBuffer(int x, int y, float z);
     bool faceCulling(const vec3& v1, const vec3& v2, const vec3& v3);
     void GPUStage(IShader *shader, VertexData *vertexData, bool shadow);
+    void do_MSAA(FragmentData *fragmentData);
     void Pass(IShader *shader);
     void renderFloor(IShader* shader, Model* model);
     Model *model,  *floorModel;
@@ -45,10 +46,11 @@ private:
     float far, near;
     float* zbuffer;
     void shadowPass(IShader *shader, Model *floorModel);
-    bool MSAA = false;
+    bool MSAA = true;
     float* MSAA_zbuffer;
 
-    std::vector<vec4>colorBuffer;
+//    std::vector<vec4>colorBuffer;
+    std::vector< std::vector<bool> > pixelMask;
     vec3 barycentric(const vec2 &pos1, const vec2 &pos2, const vec2 &pos3, const vec2 &p);
 signals:
     void frameOut(unsigned char *image, double deltaFrameTime, int fps);

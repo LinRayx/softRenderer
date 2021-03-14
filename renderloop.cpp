@@ -9,7 +9,11 @@ RenderLoop::RenderLoop(int _width, int _height, QObject *parent) : QObject(paren
     floorShader = new PhoneShader(_width, _height);
     if (MSAA) {
         MSAA_zbuffer = new float[width * height * 4 + 100];
-        colorBuffer.resize(width * height);
+//        colorBuffer.resize(width * height);
+        pixelMask.resize(width * height);
+        for (int i = 0; i < pixelMask.size(); ++i) {
+            pixelMask[i].resize(4);
+        }
     } else {
         zbuffer = new float[width * height];
     }
@@ -68,9 +72,9 @@ void RenderLoop::loop()
 
     floorModel = new Model(floorObjPath.c_str());
 
-    camera->SetPosition(vec3(0, 5, 3));
+    camera->SetPosition(vec3(0, 0, 3));
     int fps = 0;
-    lightPos = vec3(3, 5, 3);
+    lightPos = vec3(0, 0, 3);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
 
@@ -81,16 +85,19 @@ void RenderLoop::loop()
     ClearZbuffer();
         frameBuffer.ClearColorBuffer();
         start = clock();
-        shadowPass(shadowShader, floorModel);
-        phoneShader->setShadowMap(shadowMap);
-        floorShader->setShadowMap(shadowMap);
+//        shadowPass(shadowShader, floorModel);
+//        phoneShader->setShadowMap(shadowMap);
+//        floorShader->setShadowMap(shadowMap);
         Pass(phoneShader);
-        renderFloor(floorShader, floorModel);
+//        renderFloor(floorShader, floorModel);
         if (MSAA) {
-            for (int i = 0; i < colorBuffer.size(); ++i) {
-                vec4 color = colorBuffer[i];
-                frameBuffer.WritePoint(i, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), 255));
-
+            for (int i = 0; i < pixelMask.size(); ++i) {
+                float coef = 0;
+                for (int j = 0; j < pixelMask[i].size(); ++j) {
+                    coef += pixelMask[i][j] == true ? 1.0f : 0.0f;
+                }
+                coef /= 4;
+                frameBuffer.DoMsaa(i, coef);
             }
         }
         finish = clock();
@@ -256,7 +263,23 @@ void RenderLoop::GPUStage(IShader *shader, VertexData* vertexData, bool shadow)
         triangleByBcOrtho(fragmentData,shader);
     } else {
         triangleByBc(fragmentData,shader, shadow);
+        do_MSAA(fragmentData);
     }
+}
+
+void RenderLoop::do_MSAA(FragmentData *fragmentData)
+{
+    int minx = width;
+    int miny = height;
+    int maxx = 0;
+    int maxy = 0;
+    for (int i = 0; i < 3; ++i) {
+        minx = std::min(minx, static_cast<int>(fragmentData[i].screen_pos.x));
+        miny = std::min(miny, static_cast<int>(fragmentData[i].screen_pos.y));
+        maxx = std::max(maxx, static_cast<int>(ceil(fragmentData[i].screen_pos.x)));
+        maxy = std::max(maxy, static_cast<int>(ceil(fragmentData[i].screen_pos.y)));
+    }
+
 }
 
 // 顶点坐标, 法线, 纹理都会在这个阶段被插值
@@ -298,10 +321,12 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                     }
                     w = 1/w;
                     float n = near, f = far;
-                    float dep = (w - n) / (far - n);
-                    if (MSAA_zbuffer[(x + y *width)*4 + k] > dep) {
-                        MSAA_zbuffer[(x + y *width)*4 + k] = dep;
+                    float dep = (w - n) / (f - n);
+                    size_t index = static_cast<size_t>(x + y * width);
+                    if (MSAA_zbuffer[index*4 + k] > dep) {
+                        MSAA_zbuffer[index*4 + k] = dep;
                         msaa++;
+                        pixelMask[index][k] = true;
                     }
                 }
                 if (msaa == 0) continue;
@@ -334,15 +359,9 @@ void RenderLoop::triangleByBc(FragmentData *fragmentData, IShader* shader, bool 
                     }
                 }
                 pixelData.lightColor = vec3(1.);
-                vec4 pixel_color = shader->fragmentShader(pixelData);
-//                vec4 color = vec4(0);
-//                for (int i = 0; i < 4; ++i) {
-//                    color += buffer[i];
-//                }
-//                color /= 4;
-                vec4 color = 1.f * msaa / 4 * pixel_color;
-                colorBuffer[x + y * width] += color;
-//                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), 255));
+                vec4 color = shader->fragmentShader(pixelData);
+
+                frameBuffer.WritePoint(x, y, Vec4c(static_cast<unsigned char>(color[0]*255), static_cast<unsigned char>(color[1]*255), static_cast<unsigned char>(color[2]*255), 255));
             }
         }
     }

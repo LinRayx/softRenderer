@@ -42,6 +42,15 @@ void FrameBuffer::WritePoint(const int &i, const Vec4c &color)
     *(p + i*4 + 3) = color.a;
 }
 
+void FrameBuffer::DoMsaa(const int i, const float coef)
+{
+    unsigned char * p = colorBuffer.data();
+    *(p + i*4) = static_cast<unsigned char>(*(p + i*4) * coef);
+    *(p + i*4 + 1) = static_cast<unsigned char>(*(p + i*4 + 1) * coef);
+    *(p + i*4 + 2) = static_cast<unsigned char>(*(p + i*4 + 2) * coef);
+
+}
+
 unsigned char* FrameBuffer::data() {
     return colorBuffer.data();
 }
