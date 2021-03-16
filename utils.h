@@ -14,6 +14,7 @@ using namespace glm;
 #define OS_FILE_INTERVEL std::string("/")
 #define DEBUG false
 const float PI =  3.1415927f;
+const size_t MSAA_SIZE = 4;
 
 class Util {
 public:

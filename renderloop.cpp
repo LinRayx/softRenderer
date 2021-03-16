@@ -74,7 +74,7 @@ void RenderLoop::loop()
 
     camera->SetPosition(vec3(0, 0, 3));
     int fps = 0;
-    lightPos = vec3(0, 0, 3);
+    lightPos = vec3(3, 5, 3);
     phoneShader->setDiffuseImage(diffuseImg);
     phoneShader->setNormalImage(normalImg);
 
@@ -89,7 +89,6 @@ void RenderLoop::loop()
 //        phoneShader->setShadowMap(shadowMap);
 //        floorShader->setShadowMap(shadowMap);
         Pass(phoneShader);
-//        renderFloor(floorShader, floorModel);
         if (MSAA) {
             for (int i = 0; i < pixelMask.size(); ++i) {
                 float coef = 0;
@@ -100,6 +99,8 @@ void RenderLoop::loop()
                 frameBuffer.DoMsaa(i, coef);
             }
         }
+        renderFloor(floorShader, floorModel);
+
         finish = clock();
 
         deltaFrameTime = static_cast<double>(finish-start)/CLOCKS_PER_SEC;
@@ -263,23 +264,7 @@ void RenderLoop::GPUStage(IShader *shader, VertexData* vertexData, bool shadow)
         triangleByBcOrtho(fragmentData,shader);
     } else {
         triangleByBc(fragmentData,shader, shadow);
-        do_MSAA(fragmentData);
     }
-}
-
-void RenderLoop::do_MSAA(FragmentData *fragmentData)
-{
-    int minx = width;
-    int miny = height;
-    int maxx = 0;
-    int maxy = 0;
-    for (int i = 0; i < 3; ++i) {
-        minx = std::min(minx, static_cast<int>(fragmentData[i].screen_pos.x));
-        miny = std::min(miny, static_cast<int>(fragmentData[i].screen_pos.y));
-        maxx = std::max(maxx, static_cast<int>(ceil(fragmentData[i].screen_pos.x)));
-        maxy = std::max(maxy, static_cast<int>(ceil(fragmentData[i].screen_pos.y)));
-    }
-
 }
 
 // 顶点坐标, 法线, 纹理都会在这个阶段被插值

@@ -46,7 +46,7 @@ private:
     float far, near;
     float* zbuffer;
     void shadowPass(IShader *shader, Model *floorModel);
-    bool MSAA = true;
+    bool MSAA = false;
     float* MSAA_zbuffer;
 
 //    std::vector<vec4>colorBuffer;
