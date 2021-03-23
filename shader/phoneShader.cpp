@@ -32,7 +32,8 @@ void PhoneShader::vertexShader(IN VertexData& vertexData, OUT FragmentData& frag
 
 
     // 转换到切线空间
-    mat3 TBN = vertexData.TBN;
+//    mat3 TBN = transpose(vertexData.TBN);
+    mat3 TBN = transpose(vertexData.TBN);
     fragmentData.lightDir = TBN * (vertexData.light_pos - world_pos);
     fragmentData.viewDir = TBN * (vertexData.view_pos - world_pos);
     fragmentData.uv = vertexData.uv;
